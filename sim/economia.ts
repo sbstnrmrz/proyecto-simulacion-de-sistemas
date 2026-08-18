@@ -1,6 +1,6 @@
 import { clamp, ganancia } from "./redondeo";   // `perdida` no se usa acá: noUnusedLocals está en true
 import { MEJORAS } from "./datos/mejoras";
-import type { Estado, EstadoProv, Jugador, Provincia } from "./tipos";
+import type { Ejercito, Estado, EstadoProv, Jugador, Provincia } from "./tipos";
 
 /** ec. 5.1 — factor de operatividad. 1 normal, 0 asediada, 0,25 rebelde. */
 export function etaOperatividad(estado: EstadoProv): number {
@@ -84,6 +84,17 @@ export function balanceAlimentario(st: Estado, j: Jugador): number {
 }
 
 /**
+ * ec. 5.4 — reembolso de disolución: ϖ·c_R·S acreditado a la tesorería del
+ * dueño y el ejército marcado como muerto. Es el ÚNICO sitio que aplica la
+ * fórmula; `verificarQuiebra` y la Guarda 1 de la IA (§4.5) sólo difieren en
+ * el CRITERIO de selección del ejército a disolver, no en el efecto.
+ */
+export function disolverEjercito(st: Estado, j: Jugador, e: Ejercito): void {
+  j.E += ganancia(st.params.varpi * st.params.cR * e.S);
+  e.vivo = false;
+}
+
+/**
  * ec. 5.4 — protocolo de quiebra. Disuelve ejércitos por orden de costo hasta
  * equilibrar; si persiste, condona la deuda. Devuelve 1 si hubo quiebra.
  * Termina siempre: cada iteración elimina un ejército de un conjunto finito.
@@ -93,14 +104,13 @@ export function verificarQuiebra(st: Estado, j: Jugador): number {
 
   for (;;) {
     if (j.E >= 0) break;
-    let peor = null as null | { id: number; S: number };
+    let peor = null as null | Ejercito;
     for (const e of st.ejercitos.values())
       if (e.vivo && e.jugador === j.id && (peor === null || e.S > peor.S))
-        peor = { id: e.id, S: e.S };
+        peor = e;
     if (peor === null) break;
 
-    j.E += ganancia(st.params.varpi * st.params.cR * peor.S);
-    st.ejercitos.get(peor.id)!.vivo = false;
+    disolverEjercito(st, j, peor);
   }
 
   if (j.E < 0) j.E = 0;   // deuda condonada; la penalización δ_Q la aplica moral.ts

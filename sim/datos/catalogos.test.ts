@@ -38,7 +38,7 @@ describe("catálogos (§4.2 y §4.3 del spec)", () => {
   });
 
   it("las constantes que DecidirIA usaba sin declarar existen", () => {
-    expect(COSTO_MEJORA).toBe(MEJORAS.mercado.costo);
-    expect(COSTO_CASTILLO).toBe(MEJORAS.castillo.costo);
+    expect(COSTO_MEJORA).toBe(150);
+    expect(COSTO_CASTILLO).toBe(400);
   });
 });

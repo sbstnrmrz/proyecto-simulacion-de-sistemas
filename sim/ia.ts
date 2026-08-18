@@ -1,13 +1,15 @@
 import { insertar, P as PRIO } from "./lef";
 import { MAPA25, distancias } from "./datos/mapa";
 import { COSTO_CASTILLO, COSTO_MEJORA } from "./datos/mejoras";
-import { consumo, gasto } from "./economia";
-import { factorCalidad } from "./combate";
+import { consumo, disolverEjercito, gasto } from "./economia";
+import { factorCalidad, fuerzaEfectiva } from "./combate";
 import { declararGuerra, enGuerra, vecinoMasFuerte } from "./diplomacia";
 import { iniciarInvestigacion, mejorTecnologia } from "./tecnologia";
-import { ganancia } from "./redondeo";
 import type { Estado, Jugador } from "./tipos";
 
+// Seguro a nivel de módulo: hay un solo mapa (MAPA25) y su adyacencia es
+// INMUTABLE, a diferencia de a_i^E (Provincia.aE), que sí muta por partida
+// (ec. 3.7/§5.4) y por eso `crearPartida` clona las provincias en `inicial.ts`.
 const DIST = distancias(MAPA25);
 const DIST_MAX = Math.max(...DIST.flat().filter(Number.isFinite));
 
@@ -18,15 +20,19 @@ const calidad = (st: Estado, id: number, atacando: boolean) => {
   return factorCalidad(e, beta, atacando ? 0 : st.provincias[e.u].D);
 };
 
+/** ec. 3.16 — fuerza efectiva Φ_k = S_k · q_k del ejército id, en un contexto dado. */
+const fuerza = (st: Estado, id: number, atacando: boolean) =>
+  fuerzaEfectiva(st.ejercitos.get(id)!, calidad(st, id, atacando));
+
 /** ec. 4.2 — razón de fuerzas. max(1, Φ_def) evita la división por cero (§5.3). */
 export function razonFuerzas(st: Estado, provId: number, atacante: number): number {
   let phiDef = 0, phiAta = 0;
   for (const e of st.ejercitos.values()) {
     if (!e.vivo || e.S === 0) continue;
     if (e.u === provId && e.jugador !== atacante)
-      phiDef += e.S * calidad(st, e.id, false);
+      phiDef += fuerza(st, e.id, false);
     if (e.jugador === atacante && st.provincias[provId].vecinos.includes(e.u))
-      phiAta += e.S * calidad(st, e.id, true);
+      phiAta += fuerza(st, e.id, true);
   }
   return phiAta / Math.max(1, phiDef);
 }
@@ -37,9 +43,9 @@ export function amenaza(st: Estado, j: Jugador): number {
   const mias = new Set(st.provincias.filter((p) => p.c === j.id).map((p) => p.id));
   for (const e of st.ejercitos.values()) {
     if (!e.vivo || e.S === 0) continue;
-    if (e.jugador === j.id) { propia += e.S * calidad(st, e.id, true); continue; }
+    if (e.jugador === j.id) { propia += fuerza(st, e.id, true); continue; }
     if (st.provincias[e.u].vecinos.some((v) => mias.has(v)))
-      enemiga += e.S * calidad(st, e.id, true);
+      enemiga += fuerza(st, e.id, true);
   }
   return enemiga / Math.max(1, propia);
 }
@@ -82,8 +88,7 @@ export function decidirIA(st: Estado, j: Jugador): void {
     if (ejs.length > 0) {
       const peor = ejs.reduce((a, b) =>
         a.S * (1 + a.X / 100) * (a.M / 100) <= b.S * (1 + b.X / 100) * (b.M / 100) ? a : b);
-      j.E += ganancia(P.varpi * P.cR * peor.S);
-      peor.vivo = false;
+      disolverEjercito(st, j, peor);
     }
     const rica = mias.reduce((a, b) => (b.Pob > a.Pob ? b : a));
     insertar(st.lef, st.t, PRIO.ACTIVIDAD, "INICIO_CONSTRUCCION",

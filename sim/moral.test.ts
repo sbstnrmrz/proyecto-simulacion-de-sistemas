@@ -62,4 +62,12 @@ describe("moral por turno (ecs. 3.26-3.27)", () => {
     actualizarMoral(st, e, 1, 1, false);
     expect(e.M).toBe(0);
   });
+
+  it("no supera 100 recuperando muchos turnos en paz y en casa", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const e = ej({ M: 95 });
+    for (let i = 0; i < 200; i++) actualizarMoral(st, e, 0, 0, true);
+    expect(e.M).toBeGreaterThan(99);
+    expect(e.M).toBeLessThanOrEqual(100);
+  });
 });

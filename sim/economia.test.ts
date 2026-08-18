@@ -52,9 +52,10 @@ describe("balance alimentario (ecs. 3.4-3.6)", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
     const j = st.jugadores[0];
     j.F = 10_000;
+    const antes = j.F;
     const sj = balanceAlimentario(st, j);
     expect(sj).toBe(0);
-    expect(j.F).toBeGreaterThanOrEqual(0);
+    expect(j.F).toBeGreaterThan(antes);
   });
 
   it("con déficit, s_j ∈ (0,1] y la reserva queda en 0", () => {

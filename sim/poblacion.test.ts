@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { etaPob, crecer } from "./poblacion";
 import { PARAMS } from "./datos/parametros";
+import { crearPartida, configPorDefecto } from "./inicial";
+import { pasoTurno } from "./motor";
 import type { Provincia } from "./tipos";
 
 const prov = (over: Partial<Provincia> = {}): Provincia => ({
@@ -19,30 +21,35 @@ describe("población (ecs. 3.1–3.2)", () => {
   it("crece logísticamente y frena cerca de la capacidad de carga", () => {
     const lejos = prov({ Pob: 1_000 });
     const cerca = prov({ Pob: 9_500 });
-    crecer(lejos, PARAMS, 0, 0);
-    crecer(cerca, PARAMS, 0, 0);
+    crecer(lejos, PARAMS);
+    crecer(cerca, PARAMS);
     expect(lejos.Pob - 1_000).toBeGreaterThan(cerca.Pob - 9_500);
   });
 
-  it("nunca supera K ni baja de 0", () => {
+  it("nunca supera K", () => {
     const lleno = prov({ Pob: 10_000 });
-    crecer(lleno, PARAMS, 0, 0);
+    crecer(lleno, PARAMS);
     expect(lleno.Pob).toBeLessThanOrEqual(10_000);
-
-    const arrasada = prov({ Pob: 100 });
-    crecer(arrasada, PARAMS, 1, 1);   // hambruna total + peste
-    expect(arrasada.Pob).toBe(0);
   });
 
   it("bajo asedio el crecimiento se detiene", () => {
     const p = prov({ estado: "asediada" });
-    crecer(p, PARAMS, 0, 0);
+    crecer(p, PARAMS);
     expect(p.Pob).toBe(5_000);
   });
 
-  it("la escasez revierte el crecimiento (bucle B2)", () => {
-    const p = prov();
-    crecer(p, PARAMS, 1, 0);   // s_j = 1 → pérdida φ·1 = 50 %
-    expect(p.Pob).toBeLessThan(5_000);
+  it("la escasez revierte el crecimiento (bucle B2), aplicada por finTurno paso 4", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const j = st.jugadores[0];
+    j.F = 0;
+    for (const p of st.provincias) if (p.c === j.id) p.a = 0;   // sin producción: fuerza s_j > 0
+
+    const provId = st.provincias.find((p) => p.c === j.id)!.id;
+    const antes = st.provincias[provId].Pob;
+
+    pasoTurno(st);
+
+    expect(st.provincias[provId].c).toBe(j.id);   // sigue siendo suya: comparación válida
+    expect(st.provincias[provId].Pob).toBeLessThan(antes);
   });
 });

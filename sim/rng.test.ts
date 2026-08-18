@@ -10,9 +10,15 @@ describe("GCL (§3.6.1 del modelo)", () => {
   });
 
   it("la multiplicación es exacta en doubles para el peor caso", () => {
-    // 1 664 525 × (2^32 − 1) ≈ 7,149e15 < 2^53 ≈ 9,007e15.
-    const peor = 1_664_525 * (2 ** 32 - 1) + 1_013_904_223;
-    expect(Number.isSafeInteger(peor)).toBe(true);
+    // 1 664 525 × (2^32 − 1) ≈ 7,149e15 < 2^53 ≈ 9,007e15: ninguna iteración
+    // del GCL real pierde precisión al pasar por un `z` intermedio grande.
+    const rng: Rng = { z: 2 ** 32 - 1 };
+    for (let i = 0; i < 10_000; i++) {
+      u(rng);
+      expect(Number.isSafeInteger(rng.z)).toBe(true);
+      expect(rng.z).toBeGreaterThanOrEqual(0);
+      expect(rng.z).toBeLessThan(2 ** 32);
+    }
   });
 
   it("misma semilla, misma secuencia", () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { crearPartida, configPorDefecto } from "./inicial";
+import { ajustarRelacion } from "./diplomacia";
 
 describe("estado inicial (§4.5 del spec)", () => {
   it("crea un jugador por capital, con 25 provincias en total", () => {
@@ -44,6 +45,12 @@ describe("estado inicial (§4.5 del spec)", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 5 }));
     for (let a = 0; a < 5; a++) for (let b = 0; b < 5; b++)
       expect(st.relaciones[a][b]).toBe(0);
+
+    // La simetría no se ejerce sobre un valor que ya era 0 en ambos lados:
+    // hay que mover una celda y comprobar que la otra se mueve con ella.
+    ajustarRelacion(st, 0, 1, -25);
+    expect(st.relaciones[0][1]).toBe(-25);
+    expect(st.relaciones[1][0]).toBe(-25);
   });
 
   it("la LEF arranca con el INICIO_TURNO del turno 1 (§4.2)", () => {

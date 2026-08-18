@@ -8,7 +8,6 @@ export function configPorDefecto(over: Partial<Config> = {}): Config {
   return {
     semilla: 12_345,
     nJugadores: 5,
-    mapa: "reticula25",
     params: { ...PARAMS },
     ...over,
   };

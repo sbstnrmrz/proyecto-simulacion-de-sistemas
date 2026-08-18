@@ -94,6 +94,14 @@ describe("lealtad (ecs. 3.31-3.32)", () => {
     expect(p.lealtad).toBeGreaterThanOrEqual(0);
   });
 
+  it("no supera 100 aunque sobre por mucho tiempo con guarnición y sin escasez", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const p = st.provincias.find((x) => x.c === 0)!;
+    p.lealtad = 99;
+    for (let i = 0; i < 50; i++) actualizarLealtad(st, p, 0);
+    expect(p.lealtad).toBeLessThanOrEqual(100);
+  });
+
   it("Pob = 0 no aporta bonificación de guarnición (ec. 3.32)", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
     const p = st.provincias.find((x) => x.c === 0)!;

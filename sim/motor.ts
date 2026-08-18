@@ -13,11 +13,14 @@ import {
 } from "./diplomacia";
 import { intentarCompletar } from "./tecnologia";
 import { decidirIA } from "./ia";
-import { calcularPuntuacion, evaluarVictoria } from "./puntuacion";
+import { evaluarVictoria } from "./puntuacion";
 import { distancias, MAPA25 } from "./datos/mapa";
 import { ganancia, perdida } from "./redondeo";
 import type { Estado, Jugador, MejoraId, Resultado } from "./tipos";
 
+// Seguro a nivel de módulo: hay un solo mapa (MAPA25) y su adyacencia es
+// INMUTABLE, a diferencia de a_i^E (Provincia.aE), que sí muta por partida
+// (ec. 3.7/§5.4) y por eso `crearPartida` clona las provincias en `inicial.ts`.
 const DIST = distancias(MAPA25);
 
 /** Invalidación perezosa del §5.3: descarta eventos de entidades muertas. */
@@ -250,7 +253,7 @@ function eliminarJugador(st: Estado, j: Jugador): void {
   }
 }
 
-/** §4.3 — los pasos 1 a 9 corren por jugador; el 10, una sola vez. */
+/** §4.3 — los pasos 1 a 8 corren por jugador; el 9 (puntuación) y el 10, una sola vez. */
 function finTurno(st: Estado): void {
   for (const j of st.jugadores) {
     if (!j.activo) continue;
@@ -258,7 +261,7 @@ function finTurno(st: Estado): void {
 
     // 1. Crecimiento poblacional. s_j todavía es el del turno anterior: la
     //    hambruna de este turno se aplica en el paso 4 (retardo deseado, §4.3).
-    for (const p of mias) crecer(p, st.params, 0, 0);
+    for (const p of mias) crecer(p, st.params);
 
     // 2-3. Recaudación y gastos.
     const I = ingreso(st, j);
@@ -296,8 +299,6 @@ function finTurno(st: Estado): void {
         if (p.turnosDespoblada >= st.params.chi) { p.c = -1; p.turnosDespoblada = 0; }
       } else p.turnosDespoblada = 0;
     }
-    // 9. Puntuación.
-    j.V = calcularPuntuacion(st, j);
   }
 
   // 8 bis. ec. 3.30 sobre PARES no ordenados, una vez por turno. Dentro del
@@ -319,11 +320,16 @@ function finTurno(st: Estado): void {
     if (j.activo && n === 0) eliminarJugador(st, j);  // §5.1 — jugador eliminado
     st.series.nFrac[j.id].push(n / N);
     st.series.E[j.id].push(j.E);
-    st.series.V[j.id].push(j.V);
   }
 
-  // 10. Condiciones de victoria — una sola vez, fuera del bucle por jugador.
+  // 9-10. Puntuación y condiciones de victoria — una sola vez, fuera del bucle
+  // por jugador: `evaluarVictoria` es la única función que calcula V (ec.
+  // 3.33), sobre el estado YA limpio (ejércitos muertos purgados, jugadores
+  // eliminados marcados). Si se calculara dentro del bucle de arriba, los
+  // jugadores de id mayor todavía no habrían crecido/recaudado ese turno y la
+  // serie quedaría sesgada respecto del V final.
   evaluarVictoria(st);
+  for (const j of st.jugadores) st.series.V[j.id].push(j.V);
   if (!st.fin) insertar(st.lef, st.t + 1, PRIO.INICIO_TURNO, "INICIO_TURNO", {});
 }
 

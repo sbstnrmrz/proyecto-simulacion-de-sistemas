@@ -1,7 +1,6 @@
 import type { LEF } from "./lef";
 import type { Rng } from "./rng";
 
-export type MapaId = "reticula25";
 export type TecId =
   | "arado" | "rutas" | "herreria" | "asedio" | "muralla_seca" | "fortificacion";
 export type MejoraId = "granja" | "mercado" | "muralla" | "castillo";
@@ -72,7 +71,6 @@ export type Series = { nFrac: number[][]; E: number[][]; V: number[][] };
 export type Config = {
   semilla: number;
   nJugadores: number;
-  mapa: MapaId;
   params: Parametros;
 };
 
