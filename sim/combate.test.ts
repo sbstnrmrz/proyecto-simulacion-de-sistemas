@@ -62,18 +62,60 @@ describe("resolución por rondas (ecs. 3.19-3.23)", () => {
     def.S = atk.S; def.M = atk.M; def.X = atk.X;
     objetivo.D = 0;
     const r = resolverBatalla(st, atk.id, objetivo.id, atk.u);
-    if (r.A === r.D) expect(r.ataqueExitoso).toBe(false);
+    // qA = qD, A0 = D0 = 500 ⇒ la batalla siempre termina por agotamiento
+    // con ambos bandos ~340, muy por encima del umbral de retirada (125):
+    // ataqueExitoso es false de forma determinista, sin condicionar el assert.
+    expect(r.ataqueExitoso).toBe(false);
   });
 
-  it("perder BAJA la moral — errata §5.2 del spec", () => {
+  it("perder BAJA la moral en la magnitud exacta — errata §5.2 del spec", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
     const objetivo = st.provincias.find((p) => p.c === -1)!;
     const def = [...st.ejercitos.values()].find((e) => e.u === objetivo.id)!;
     const atk = [...st.ejercitos.values()].find((e) => e.jugador === 0 && e.vivo)!;
     def.S = 50_000;                       // el atacante no tiene chance
     const moralAntes = atk.M;
-    resolverBatalla(st, atk.id, objetivo.id, atk.u);
-    expect(atk.M).toBeLessThan(moralAntes);
+    const A0 = atk.S;
+    const r = resolverBatalla(st, atk.id, objetivo.id, atk.u);
+    expect(r.ataqueExitoso).toBe(false);
+    // Con el signo invertido (omegaD = −20, justo el bug que la errata
+    // previene) la caída sería omegaV − costoA en vez de omegaD + costoA:
+    // para deltaB=40, costoA=40 la diferencia (20 vs 60) es indistinguible
+    // de "menor que antes" sola, así que se afirma la magnitud exacta.
+    const fraccionBajas = (A0 - r.A) / A0;
+    const caidaEsperada = st.params.omegaD + st.params.deltaB * fraccionBajas;
+    expect(moralAntes - atk.M).toBeCloseTo(caidaEsperada, 10);
+  });
+
+  it("ganar SUBE la moral en la magnitud exacta — errata §5.2 del spec", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const objetivo = st.provincias.find((p) => p.c === -1)!;
+    const def = [...st.ejercitos.values()].find((e) => e.u === objetivo.id)!;
+    const atk = [...st.ejercitos.values()].find((e) => e.jugador === 0 && e.vivo)!;
+    def.S = 1;                            // el defensor no tiene chance
+    const moralAntes = atk.M;
+    const A0 = atk.S;
+    const r = resolverBatalla(st, atk.id, objetivo.id, atk.u);
+    expect(r.ataqueExitoso).toBe(true);
+    const fraccionBajas = (A0 - r.A) / A0;
+    const subidaEsperada = st.params.omegaV - st.params.deltaB * fraccionBajas;
+    expect(atk.M - moralAntes).toBeCloseTo(subidaEsperada, 10);
+  });
+
+  it("no se repliega a un origen que ya no es propio (§4.4)", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const objetivo = st.provincias.find((p) => p.c === -1)!;
+    const def = [...st.ejercitos.values()].find((e) => e.u === objetivo.id)!;
+    const atk = [...st.ejercitos.values()].find((e) => e.jugador === 0 && e.vivo)!;
+    def.S = 50_000;                       // el atacante no tiene chance
+    const origenProv = st.provincias.find(
+      (p) => p.id !== objetivo.id && p.id !== atk.u)!;
+    origenProv.c = 1;                     // el origen cayó en manos enemigas este turno
+    const uAntes = atk.u;
+    const r = resolverBatalla(st, atk.id, objetivo.id, origenProv.id);
+    expect(r.ataqueExitoso).toBe(false);
+    expect(atk.u).not.toBe(origenProv.id);
+    expect(atk.u).toBe(uAntes);
   });
 
   it("nunca deja efectivos negativos ni moral fuera de [0,100]", () => {

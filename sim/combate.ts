@@ -88,7 +88,13 @@ export function resolverBatalla(
 
   if (k.S === 0) k.vivo = false;
   if (defensor.S === 0) defensor.vivo = false;
-  if (!ataqueExitoso && k.S > 0) k.u = origen;   // repliegue
+  // Repliegue (§4.4, pseudocódigo Replegar(k, origen)) — instantáneo, ignora
+  // el tiempo de viaje (el modelo lo tolera). Se valida el destino: la LEF
+  // puede resolver varias BATALLA con la misma marca temporal, así que
+  // `origen` puede haber caído en manos enemigas en este mismo turno; si ya
+  // no es del atacante, el ejército derrotado se queda donde está en vez de
+  // aterrizar sin aviso dentro de territorio enemigo.
+  if (!ataqueExitoso && k.S > 0 && st.provincias[origen].c === k.jugador) k.u = origen;
 
   return { ataqueExitoso, rondas: n, A, D };
 }
