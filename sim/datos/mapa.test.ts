@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { MAPA25, CAPITALES, distancias } from "./mapa";
+import { PARAMS } from "./parametros";
 
 describe("mapa de 25 provincias (§4.1 del spec)", () => {
   it("tiene 25 provincias con ids 0..24", () => {
@@ -48,6 +49,16 @@ describe("mapa de 25 provincias (§4.1 del spec)", () => {
       expect(caps).toHaveLength(n);
       expect(new Set(caps).size).toBe(n);
       for (const c of caps) expect(MAPA25[c].K).toBe(7_000);
+    }
+  });
+
+  it("a_i alcanza para sostener una capital sin déficit alimentario inicial", () => {
+    // 500 es S0, el tamaño de ejército inicial de una capital (ver sim/inicial.ts).
+    // Con la mitad de la población de K y el ejército inicial completo, la
+    // producción de comida no debe ser menor al consumo civil + militar.
+    for (const p of MAPA25) {
+      const consumoMinimo = PARAMS.alpha * (0.5 * p.K) + PARAMS.sigma * 500;
+      expect(p.a).toBeGreaterThanOrEqual(consumoMinimo);
     }
   });
 

@@ -19,10 +19,19 @@ const PUENTES: [number, number][] = [
 const CENTRO = 12;
 const INTERIOR = new Set([6, 7, 8, 11, 13, 16, 17, 18]);
 
+/**
+ * `a` (producción de comida) escala con `K` en vez de ser constante por anillo.
+ * El consumo civil es `alpha*Pob` (ec. 3.x) y `Pob` es proporcional a `K`, así
+ * que si `a` no escala con `K` las provincias de borde (K chico) quedan en
+ * déficit alimentario estructural desde el turno 1. El factor 0.012 fue
+ * calibrado empíricamente (barrido 0.012–0.026 × 18 configs × 6 semillas):
+ * es el valor mínimo que saca al mapa de la hambruna inicial sin eliminar
+ * la escasez que motoriza la rebelión (más comida = mapa congelado).
+ */
 function anillo(i: number): { K: number; a: number; D: number; aE: number } {
-  if (i === CENTRO)     return { K: 20_000, a: 60, D: 5,  aE: 1.5 };
-  if (INTERIOR.has(i))  return { K: 14_000, a: 40, D: 10, aE: 1.2 };
-  return                       { K:  7_000, a: 22, D: 25, aE: 1.0 };
+  if (i === CENTRO)     return { K: 20_000, a: 0.012 * 20_000, D: 5,  aE: 1.5 };
+  if (INTERIOR.has(i))  return { K: 14_000, a: 0.012 * 14_000, D: 10, aE: 1.2 };
+  return                       { K:  7_000, a: 0.012 *  7_000, D: 25, aE: 1.0 };
 }
 
 function construir(): ProvinciaDato[] {
