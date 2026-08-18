@@ -1,6 +1,7 @@
 import { correr } from "../sim/motor";
 import { crearPartida, configPorDefecto } from "../sim/inicial";
 import { resumirCelda } from "./metricas";
+import { u } from "../sim/rng";
 import type { Corrida, Resumen } from "./tipos";
 
 /** Factor A del §7: número de jugadores activos iniciales. */
@@ -13,8 +14,17 @@ export const NIVELES_B = [0.05, 0.1, 0.2];
  * §3.6.4 — números aleatorios comunes: el MISMO vector en las nueve celdas,
  * para que la diferencia entre configuraciones sea atribuible al factor y no
  * al azar del muestreo.
+ *
+ * Las 30 semillas de las réplicas (§3.6.4). NO son enteros consecutivos: alimentar
+ * 1000, 1001, 1002… directamente como estado del GCL produce un retículo —el primer
+ * u de cada corrida queda confinado a un rango de 0,011— porque semillas contiguas
+ * se separan por exactamente el multiplicador. Se derivan iterando el generador
+ * desde una semilla maestra para que las réplicas arranquen descorrelacionadas.
  */
-export const SEMILLAS = Array.from({ length: 30 }, (_, r) => 1000 + r);
+export const SEMILLAS = (() => {
+  const r = { z: 20250820 };
+  return Array.from({ length: 30 }, () => { u(r); u(r); u(r); return r.z; });
+})();
 
 /** Una corrida del factorial. Estado fresco: no comparte nada con las demás. */
 export function unaCorrida(nJugadores: number, gamma: number, semilla: number): Corrida {

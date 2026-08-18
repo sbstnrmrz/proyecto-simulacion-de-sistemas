@@ -96,7 +96,7 @@ $("correr").addEventListener("click", async () => {
   const ms = Math.round(performance.now() - t0);
 
   const anovaT = anovaDosFactores(observaciones(r.corridas, (c) => c.tVic));
-  const anovaC = anovaDosFactores(observaciones(r.corridas, (c) => c.colapsados));
+  const anovaC = anovaDosFactores(observaciones(r.corridas, (c) => c.colapsados / c.nJugadores));
 
   $("progreso").textContent = `270 corridas en ${ms} ms.`;
   $("salida").innerHTML =
@@ -104,14 +104,24 @@ $("correr").addEventListener("click", async () => {
     tablaAnova("ANOVA — turnos hasta la victoria", anovaT,
       "Factor A: número de jugadores. Factor B: mantenimiento militar γ. " +
       "La respuesta está censurada en las corridas que terminaron por horizonte; " +
-      "ver la columna correspondiente de la tabla anterior.") +
-    tablaAnova("ANOVA — jugadores colapsados por réplica", anovaC,
-      "La ec. 3.37 define la tasa de colapso como un cociente de celda, no como una " +
-      "medición por réplica, así que no entra en un ANOVA balanceado. Acá se analiza el " +
-      "número de jugadores colapsados en cada réplica, que mide el mismo fenómeno y sí " +
-      "está definido réplica a réplica. La tasa de la ec. 3.37 está en la tabla de resumen. " +
-      "Nótese que esta respuesta depende del número de jugadores por construcción: con 8 " +
-      "hay más candidatos a colapsar que con 3, y eso es parte del efecto del Factor A.") +
+      "ver la columna «Por horizonte» de la tabla anterior. Por encima de una fracción " +
+      "censurada de aproximadamente 20–30 % el supuesto de normalidad del ANOVA deja de " +
+      "sostenerse y el F de esa fila no es interpretable como prueba de hipótesis, aunque " +
+      "se calcule igual; no alcanza con reportar la fracción, hay que decir que la celda " +
+      "queda fuera del análisis paramétrico.") +
+    tablaAnova("ANOVA — tasa de colapso por jugador de la réplica", anovaC,
+      "Respuesta: colapsados / nJugadores de cada réplica (no el conteo crudo). El conteo " +
+      "crudo de colapsados escala con el propio Factor A —con 8 jugadores hay más candidatos " +
+      "a colapsar que con 3— y eso basta para inflar el efecto de A de forma espuria: con el " +
+      "conteo crudo el Factor A daba F = 3,55 (apenas por encima del crítico de 3,03) y al " +
+      "normalizar por jugador cae a F ≈ 1,06 (no significativo), y encima el orden se invierte: " +
+      "con γ = 0,20 colapsa el 18,9 % de los jugadores con 3 jugadores en la partida, contra " +
+      "4,6 % con 8. Un resultado que se da vuelta al cambiar el denominador no se puede " +
+      "presentar como hallazgo, así que se reporta la tasa por jugador, que sí controla el " +
+      "denominador y mantiene el diseño balanceado (30 réplicas por celda). La tasa de la " +
+      "ec. 3.37 —cociente de sumas de celda sobre los jugadores que llegaron al 40 %, no " +
+      "sobre todos— es la que define el documento y sigue estando en la tabla de resumen; " +
+      "no es la misma cantidad que esta respuesta por réplica y no se puede comparar directo.") +
     `<p><button id="csv">Descargar CSV (270 filas)</button></p>`;
 
   $("csv").addEventListener("click", () => descargarCSV(r.corridas));

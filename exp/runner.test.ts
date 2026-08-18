@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { unaCorrida, correrLote, correrLoteProgresivo, NIVELES_A, NIVELES_B, SEMILLAS } from "./runner";
+import { u, type Rng } from "../sim/rng";
 
 describe("diseño experimental (§7)", () => {
   it("es un factorial 3×3 con 30 réplicas", () => {
@@ -11,8 +12,20 @@ describe("diseño experimental (§7)", () => {
   it("usa el MISMO vector de semillas en todas las celdas (§3.6.4)", () => {
     // Números aleatorios comunes: es lo que hace comparables las configuraciones.
     expect(new Set(SEMILLAS).size).toBe(30);
-    expect(SEMILLAS[0]).toBe(1000);
-    expect(SEMILLAS[29]).toBe(1029);
+  });
+
+  it("las semillas no forman un retículo: el primer u derivado de cada una se reparte en (0,1)", () => {
+    // No se puede verificar contra valores fijos de SEMILLAS (dependen sólo de la
+    // semilla maestra y son un detalle de implementación). Lo que sí importa —lo
+    // que hace a las 30 réplicas independientes en el sentido que el IC y el ANOVA
+    // suponen— es que no queden confinadas a un rango angosto del intervalo (0,1),
+    // como pasaba al alimentar enteros consecutivos (1000, 1001, …) directamente
+    // como estado del GCL: esas 30 corridas arrancaban en un retículo con un rango
+    // de apenas 0,011 en el primer u. Un rango > 0,5 sobre 30 muestras de un GCL de
+    // buena calidad descarta ese problema sin comprometerse a valores concretos.
+    const primerU = SEMILLAS.map((s) => u({ z: s } as Rng));
+    const rango = Math.max(...primerU) - Math.min(...primerU);
+    expect(rango).toBeGreaterThan(0.5);
   });
 });
 
