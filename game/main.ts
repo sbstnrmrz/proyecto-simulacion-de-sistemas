@@ -170,6 +170,8 @@ function menuSlot(index: number, total: number): Rect {
   };
 }
 
+// TEMP: prueba visual de checkbox/dropdown, se saca después de verificar.
+
 function renderUI(): void {
   if (menuBgLoaded) {
     ctx.drawImage(menuBg, 0, 0, canvas.width, canvas.height);
@@ -187,6 +189,7 @@ function renderUI(): void {
   if (ui.button("Debug", debugSlot, { id: "debug.toggle", on: debug.visible })) {
     debug.visible = !debug.visible;
   }
+
 
   ui.endFrame();
 }

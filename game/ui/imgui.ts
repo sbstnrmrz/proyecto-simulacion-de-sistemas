@@ -22,10 +22,44 @@ export type ButtonOptions = {
   borderColor?: string;
 };
 
+export type CheckboxOptions = {
+  /** Igual que en button: por defecto es el label. */
+  id?: string;
+  disabled?: boolean;
+};
+
+export type DropdownOptions = {
+  /**
+   * A diferencia de button/checkbox es obligatorio: el desplegable no tiene
+   * un label propio del que derivar un id (el texto visible es el de la
+   * opción seleccionada, que cambia).
+   */
+  id: string;
+  disabled?: boolean;
+};
+
 export type UI = {
   beginFrame(): void;
   endFrame(): void;
   button(label: string, rect: Rect, options?: ButtonOptions): boolean;
+  /** Devuelve el estado (encendido/apagado) resultante de esta interacción. */
+  checkbox(
+    label: string,
+    rect: Rect,
+    checked: boolean,
+    options?: CheckboxOptions,
+  ): boolean;
+  /**
+   * Devuelve el índice seleccionado resultante de esta interacción (igual a
+   * `selected` si no hubo click). El desplegable administra su propio estado
+   * de abierto/cerrado internamente, indexado por `options.id`.
+   */
+  dropdown(
+    items: string[],
+    rect: Rect,
+    selected: number,
+    options: DropdownOptions,
+  ): number;
 };
 
 const COLORS = {
@@ -40,6 +74,7 @@ const COLORS = {
 };
 
 const FONT = "16px Minecraft, system-ui, sans-serif";
+const CHECKBOX_SIZE = 18;
 
 /** Aclara (percent > 0) u oscurece (percent < 0) un color "#rrggbb". */
 function shade(hex: string, percent: number): string {
@@ -58,6 +93,16 @@ function hits(rect: Rect, x: number, y: number): boolean {
   return (
     x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h
   );
+}
+
+/** Rect de la i-ésima fila de opciones, apilada debajo del header del dropdown. */
+function dropdownRow(header: Rect, index: number): Rect {
+  return {
+    x: header.x,
+    y: header.y + header.h * (index + 1),
+    w: header.w,
+    h: header.h,
+  };
 }
 
 export function createUI(
@@ -80,6 +125,16 @@ export function createUI(
   // compartan hover y click, y es un bug difícil de ver a ojo, así que se
   // avisa en desarrollo. En el build de producción la rama se elimina.
   const seen = new Set<string>();
+
+  // Ids de los dropdowns actualmente abiertos. Vive entre frames porque,
+  // a diferencia de hover/press, "abierto" es un estado que el widget
+  // sostiene por sí mismo en vez de recibirlo del caller.
+  const open = new Set<string>();
+
+  // Dibujos diferidos hasta endFrame(), para que queden por encima de
+  // cualquier otra cosa dibujada más tarde en el mismo frame (ej. la lista
+  // de un dropdown no debe quedar tapada por el botón que se dibuja después).
+  const overlay: Array<() => void> = [];
 
   // El canvas puede estar escalado por CSS respecto de su resolución interna,
   // así que las coordenadas del puntero se convierten al espacio del canvas.
@@ -109,6 +164,37 @@ export function createUI(
     mouse.y = -1;
   });
 
+  function trackId(id: string): void {
+    if (!import.meta.env.DEV) return;
+    if (seen.has(id)) {
+      console.warn(
+        `[ui] id duplicado: "${id}". Los widgets que lo comparten van a ` +
+          `reaccionar juntos; pasá un id explícito en las opciones.`,
+      );
+    }
+    seen.add(id);
+  }
+
+  // Hover/press/click comparten esta misma mecánica en todos los widgets
+  // clickeables: sólo cambia qué se dibuja según el resultado.
+  function interact(
+    id: string,
+    rect: Rect,
+    disabled: boolean | undefined,
+  ): { hovered: boolean; held: boolean; clicked: boolean } {
+    const hovered = !disabled && hits(rect, mouse.x, mouse.y);
+
+    if (hovered) hot = id;
+    if (hovered && mouse.pressed) active = id;
+
+    const held = active === id && hovered;
+    // El click se confirma al soltar sobre el mismo widget donde se apretó:
+    // apretar y arrastrar afuera cancela, como en cualquier UI nativa.
+    const clicked = mouse.released && held;
+
+    return { hovered, held, clicked };
+  }
+
   return {
     beginFrame(): void {
       hot = null;
@@ -116,6 +202,9 @@ export function createUI(
     },
 
     endFrame(): void {
+      overlay.forEach((draw) => draw());
+      overlay.length = 0;
+
       if (mouse.released) active = null;
       mouse.pressed = false;
       mouse.released = false;
@@ -124,26 +213,9 @@ export function createUI(
 
     button(label: string, rect: Rect, options: ButtonOptions = {}): boolean {
       const id = options.id ?? label;
+      trackId(id);
 
-      if (import.meta.env.DEV) {
-        if (seen.has(id)) {
-          console.warn(
-            `[ui] id duplicado: "${id}". Los widgets que lo comparten van a ` +
-              `reaccionar juntos; pasá un id explícito en las opciones.`,
-          );
-        }
-        seen.add(id);
-      }
-
-      const hovered = !options.disabled && hits(rect, mouse.x, mouse.y);
-
-      if (hovered) hot = id;
-      if (hovered && mouse.pressed) active = id;
-
-      const held = active === id && hovered;
-      // El click se confirma al soltar sobre el mismo botón donde se apretó:
-      // apretar y arrastrar afuera cancela, como en cualquier UI nativa.
-      const clicked = mouse.released && held;
+      const { hovered, held, clicked } = interact(id, rect, options.disabled);
 
       let face: string;
       if (options.on) face = COLORS.faceOn;
@@ -185,6 +257,166 @@ export function createUI(
       ctx.restore();
 
       return clicked;
+    },
+
+    checkbox(
+      label: string,
+      rect: Rect,
+      checked: boolean,
+      options: CheckboxOptions = {},
+    ): boolean {
+      const id = options.id ?? label;
+      trackId(id);
+
+      const { hovered, held, clicked } = interact(id, rect, options.disabled);
+      // A diferencia de button, acá no hay un "clicked" que el caller deba
+      // interpretar: el checkbox devuelve directamente su próximo estado.
+      const next = clicked ? !checked : checked;
+
+      const box: Rect = {
+        x: rect.x,
+        y: rect.y + (rect.h - CHECKBOX_SIZE) / 2,
+        w: CHECKBOX_SIZE,
+        h: CHECKBOX_SIZE,
+      };
+
+      ctx.save();
+      ctx.globalAlpha = options.disabled ? 0.5 : 1;
+
+      if (next) ctx.fillStyle = COLORS.faceOn;
+      else if (held) ctx.fillStyle = COLORS.facePressed;
+      else if (hovered) ctx.fillStyle = COLORS.faceHover;
+      else ctx.fillStyle = COLORS.face;
+      ctx.fillRect(box.x, box.y, box.w, box.h);
+
+      ctx.strokeStyle = hovered ? COLORS.borderHover : COLORS.border;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(box.x + 1, box.y + 1, box.w - 2, box.h - 2);
+
+      if (next) {
+        ctx.strokeStyle = COLORS.textOn;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(box.x + 4, box.y + box.h / 2 + 1);
+        ctx.lineTo(box.x + box.w / 2 - 1, box.y + box.h - 5);
+        ctx.lineTo(box.x + box.w - 4, box.y + 4);
+        ctx.stroke();
+      }
+
+      ctx.font = FONT;
+      ctx.fillStyle = COLORS.text;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, box.x + box.w + 10, rect.y + rect.h / 2);
+
+      ctx.restore();
+
+      return next;
+    },
+
+    dropdown(
+      items: string[],
+      rect: Rect,
+      selected: number,
+      options: DropdownOptions,
+    ): number {
+      const { id } = options;
+      trackId(id);
+
+      const { hovered: headerHovered, clicked: headerClicked } = interact(
+        id,
+        rect,
+        options.disabled,
+      );
+
+      const wasOpen = open.has(id);
+      if (headerClicked) {
+        if (wasOpen) open.delete(id);
+        else open.add(id);
+      }
+
+      let next = selected;
+
+      // Las filas no pasan por interact(): es una lista transitoria que se
+      // cierra apenas se suelta, así que alcanza con reaccionar al flanco de
+      // "pressed" en vez de llevar su propio hot/active por fila.
+      if (wasOpen && !headerClicked) {
+        let clickedRow = -1;
+        let rowHovered = false;
+        items.forEach((_, i) => {
+          if (hits(dropdownRow(rect, i), mouse.x, mouse.y)) {
+            rowHovered = true;
+            if (mouse.pressed) clickedRow = i;
+          }
+        });
+        if (rowHovered) hot = id;
+
+        // Clickear afuera (ni el header ni una fila) también cierra la
+        // lista, pero sin el click del header, que ya se manejó arriba.
+        if (!headerHovered && mouse.pressed) {
+          if (clickedRow !== -1) next = clickedRow;
+          open.delete(id);
+        }
+      }
+
+      const isOpen = open.has(id);
+
+      ctx.save();
+      ctx.globalAlpha = options.disabled ? 0.5 : 1;
+
+      ctx.fillStyle = isOpen
+        ? COLORS.facePressed
+        : headerHovered
+          ? COLORS.faceHover
+          : COLORS.face;
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+      ctx.strokeStyle = headerHovered ? COLORS.borderHover : COLORS.border;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+
+      ctx.font = FONT;
+      ctx.fillStyle = COLORS.text;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(items[selected] ?? "", rect.x + 10, rect.y + rect.h / 2);
+
+      ctx.textAlign = "right";
+      ctx.fillText(isOpen ? "▲" : "▼", rect.x + rect.w - 10, rect.y + rect.h / 2);
+      ctx.restore();
+
+      // Se defiere a endFrame() para no quedar tapada por widgets que se
+      // dibujen después de este en el mismo frame.
+      if (isOpen) {
+        overlay.push(() => {
+          items.forEach((label, i) => {
+            const row = dropdownRow(rect, i);
+            const rowHovered = hits(row, mouse.x, mouse.y);
+
+            ctx.save();
+            ctx.fillStyle =
+              i === selected
+                ? COLORS.faceOn
+                : rowHovered
+                  ? COLORS.faceHover
+                  : COLORS.face;
+            ctx.fillRect(row.x, row.y, row.w, row.h);
+
+            ctx.strokeStyle = COLORS.border;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(row.x + 0.5, row.y + 0.5, row.w - 1, row.h - 1);
+
+            ctx.font = FONT;
+            ctx.fillStyle = i === selected ? COLORS.textOn : COLORS.text;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, row.x + 10, row.y + row.h / 2);
+            ctx.restore();
+          });
+        });
+      }
+
+      return next;
     },
   };
 }
