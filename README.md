@@ -69,35 +69,47 @@ subsistema.
 
 ```
 sim/                    — el motor, sin DOM
-├── tipos.ts            — Estado, Config, Jugador, Provincia, Ejército: el diccionario de variables
-├── lef.ts              — Lista de Eventos Futuros: cola de prioridad por (t, prioridad, orden de encolado)
-├── motor.ts            — dispatcher de eventos y pasoEvento(): el bucle principal
-├── inicial.ts          — construcción del estado inicial y configPorDefecto()
-├── rng.ts              — generador congruencial lineal propio + transformada inversa
-├── poblacion.ts        — dinámica poblacional logística (ecs. 3.1–3.2)
-├── economia.ts         — subsistemas alimentario y económico (ecs. 3.3–3.10)
-├── tecnologia.ts        — acumulación de investigación y bonificaciones aditivas (ecs. 3.11–3.13)
-├── combate.ts           — combate estocástico de Lanchester (ecs. 3.14–3.21)
-├── moral.ts             — tasa de deserción por partes (ecs. 3.26–3.28)
-├── diplomacia.ts        — matriz de relaciones, guerra y acuerdos (ecs. 3.29–3.31)
-├── ia.ts                — árbol de decisión determinista de la IA (§4.2–4.4)
-├── puntuacion.ts        — puntuación V y las tres condiciones de victoria (ec. 3.33)
-├── redondeo.ts          — disciplina de saturación y redondeo de pérdidas (§1.2, §5.3)
-├── invariantes.ts       — dominios del §2.1 como aserciones vivas, corridas en los tests
-└── datos/               — mapa de 25 provincias, catálogo de tecnologías, mejoras, parámetros por defecto
+├── tipos.ts       — Estado, Config, Jugador, Provincia, Ejército: el diccionario de variables
+├── lef.ts         — Lista de Eventos Futuros: cola de prioridad por (t, prioridad, orden de encolado)
+├── motor.ts       — dispatcher de eventos y pasoEvento(): el bucle principal (también ecs. 3.9–3.11 en el cierre de turno)
+├── inicial.ts     — construcción del estado inicial y configPorDefecto()
+├── rng.ts         — generador congruencial lineal propio + transformada inversa
+├── poblacion.ts   — dinámica poblacional logística (ecs. 3.1–3.2)
+├── economia.ts    — subsistemas alimentario y económico (ecs. 3.3–3.8, 5.1)
+├── tecnologia.ts  — acumulación de investigación y bonificaciones aditivas (ecs. 3.12–3.13)
+├── combate.ts     — combate estocástico de Lanchester (ecs. 3.14–3.22)
+├── moral.ts       — tasa de deserción por partes (ecs. 3.26–3.29, 5.3)
+├── diplomacia.ts  — matriz de relaciones, guerra y acuerdos (ecs. 3.30–3.32, 5.2)
+├── ia.ts          — árbol de decisión determinista de la IA (§4.2–4.4)
+├── puntuacion.ts  — puntuación V y las tres condiciones de victoria (ec. 3.33)
+├── redondeo.ts    — disciplina de saturación y redondeo de pérdidas (§1.2, §5.3)
+├── invariantes.ts — dominios del §2.1 como aserciones vivas, corridas en los tests
+└── datos/         — mapa de 25 provincias, catálogo de tecnologías, mejoras, parámetros por defecto
 
 exp/                    — runner de experimentos y análisis estadístico (§7)
-├── runner.ts            — corre el factorial 3×3 × 30 réplicas
-├── metricas.ts           — resumen por celda (media, IC al 95 %)
-├── anova.ts              — ANOVA de dos factores
-├── csv.ts                — exportación de las corridas
-└── main.ts               — controlador de experimento.html
+├── runner.ts   — corre el factorial 3×3 × 30 réplicas
+├── metricas.ts — resumen por celda (media, IC al 95 %)
+├── anova.ts    — ANOVA de dos factores
+├── csv.ts      — exportación de las corridas
+└── main.ts     — controlador de experimento.html
 
 ui/                     — interfaz de observación (§6 del documento)
-├── main.ts               — controlador de partida.html: pasoEvento() por clic, o en bucle
-├── vista.ts              — proyección del Estado a filas de tabla
-└── grafico.ts             — SVG del territorio por jugador a lo largo del tiempo
+├── main.ts    — controlador de partida.html: pasoEvento() por clic, o en bucle
+├── vista.ts   — proyección del Estado a filas de tabla
+└── grafico.ts — SVG del territorio por jugador a lo largo del tiempo
 ```
+
+El cierre de turno en `motor.ts` aplica además las ecs. 3.9, 3.10 y 3.11
+(inversión en I+D, balance del tesoro y acumulación de investigación): el
+documento las atribuye a Economía y a Tecnología respectivamente, pero se
+ejecutan en el cierre de turno y no en el módulo de su propio subsistema.
+Es una discrepancia real con la matriz del §6, señalada acá para que no la
+descubra el corrector leyendo el código.
+
+Dos ecuaciones tampoco quedan etiquetadas en ningún comentario: la 3.17 está
+implementada como el criterio de retirada en `combate.ts`, pero sin su
+número; y la 3.24 no es identificable en el código. Son las dos únicas filas
+de esta matriz que hoy no se pueden verificar leyendo un comentario.
 
 La interfaz es DOM puro (`<button>`, `<input>`, `<select>`), con un SVG
 marcado `role="img"` y `aria-label` para el gráfico de territorio — es
