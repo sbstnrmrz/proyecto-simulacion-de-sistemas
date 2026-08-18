@@ -37,16 +37,34 @@ Abrir la URL que imprime la consola, normalmente <http://localhost:5173>.
 ```
 .
 ├── index.html        # Página con el <canvas> centrado; carga el módulo TS
+├── assets/
+│   └── Minecraft.ttf # Fuente de píxeles, cargada vía FontFace antes del loop
 ├── game/
-│   └── main.ts       # Game loop: update() + render()
+│   ├── main.ts       # Game loop: update() + render()
+│   └── ui/
+│       └── imgui.ts  # UI de modo inmediato dibujada en el canvas
 ├── package.json
 ├── pnpm-lock.yaml
 └── tsconfig.json
 ```
 
+## UI
+
+La interfaz se dibuja dentro del canvas con un esquema de **modo inmediato**
+(`game/ui/imgui.ts`): los botones no son objetos que viven entre frames, se
+declaran en cada frame y la función devuelve si hubo click.
+
+```ts
+if (ui.button("Ajustes", { x: 100, y: 60, w: 190, h: 40 })) abrirAjustes();
+```
+
+Limitación conocida: al no haber elementos DOM, la UI **no es accesible por
+teclado ni para lectores de pantalla**. Si eso hace falta, la salida habitual es
+mantener botones DOM invisibles en paralelo.
+
 ## Debug
 
-El botón **Debug** (arriba a la izquierda) muestra u oculta un overlay dibujado
+El botón **Debug** (arriba a la derecha) muestra u oculta un overlay dibujado
 sobre el canvas con:
 
 - **FPS** — frames por segundo, promediados en ventanas de 0.5 s.

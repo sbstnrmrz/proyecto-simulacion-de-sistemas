@@ -1,3 +1,6 @@
+import minecraftUrl from "../assets/Minecraft.ttf";
+import { createUI, type Rect } from "./ui/imgui";
+
 const canvasEl = document.getElementById("canvas");
 if (!(canvasEl instanceof HTMLCanvasElement)) {
   throw new Error("No se encontró el <canvas id='canvas'>");
@@ -84,30 +87,81 @@ function sampleDebug(rawDelta: number, ticks: number): void {
   }
 }
 
+// Minecraft.ttf es una fuente de píxeles: se ve nítida en múltiplos de 8 px.
+const DEBUG_FONT = "16px Minecraft, ui-monospace, monospace";
+const LINE_HEIGHT = 20;
+const PADDING = 8;
+
 function renderDebug(): void {
   const lines = [
-    `FPS       ${debug.fps.toFixed(1)}`,
-    `Frame     ${debug.frameMs.toFixed(2)} ms`,
-    `Ticks/f   ${debug.ticks}`,
+    `FPS     ${debug.fps.toFixed(1)}`,
+    `Frame   ${debug.frameMs.toFixed(2)} ms`,
+    `Ticks/f ${debug.ticks}`,
   ];
 
   ctx.save();
-  ctx.font = "13px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.font = DEBUG_FONT;
   ctx.textBaseline = "top";
 
+  // La caja se mide a partir del texto: la fuente no es monoespaciada y sus
+  // anchos no coinciden con los de la fuente de fallback.
+  const width = Math.max(...lines.map((line) => ctx.measureText(line).width));
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-  ctx.fillRect(8, 8, 150, lines.length * 16 + 10);
+  ctx.fillRect(
+    PADDING,
+    PADDING,
+    width + PADDING * 2,
+    lines.length * LINE_HEIGHT + PADDING,
+  );
 
   ctx.fillStyle = "#7ddf7d";
-  lines.forEach((line, i) => ctx.fillText(line, 14, 13 + i * 16));
+  lines.forEach((line, i) =>
+    ctx.fillText(line, PADDING * 2, PADDING + 5 + i * LINE_HEIGHT),
+  );
   ctx.restore();
 }
 
-const toggle = document.getElementById("debug-toggle");
-toggle?.addEventListener("click", () => {
-  debug.visible = !debug.visible;
-  toggle.setAttribute("aria-pressed", String(debug.visible));
-});
+// --- UI ------------------------------------------------------------------
+
+const ui = createUI(canvas, ctx);
+
+const BUTTON_W = 190;
+const BUTTON_H = 40;
+const BUTTON_GAP = 12;
+
+const MENU: { label: string; action: () => void }[] = [
+  { label: "Nueva partida", action: () => console.log("TODO: nueva partida") },
+  { label: "Ajustes", action: () => console.log("TODO: ajustes") },
+  { label: "Salir", action: () => console.log("TODO: salir") },
+];
+
+/** Rect del i-ésimo botón de una fila centrada horizontalmente. */
+function menuSlot(index: number, total: number): Rect {
+  const rowWidth = total * BUTTON_W + (total - 1) * BUTTON_GAP;
+  return {
+    x: (canvas.width - rowWidth) / 2 + index * (BUTTON_W + BUTTON_GAP),
+    y: canvas.height - BUTTON_H - 24,
+    w: BUTTON_W,
+    h: BUTTON_H,
+  };
+}
+
+function renderUI(): void {
+  ui.beginFrame();
+
+  MENU.forEach((item, i) => {
+    if (ui.button(item.label, menuSlot(i, MENU.length))) item.action();
+  });
+
+  if (ui.button("Debug", { x: canvas.width - 104, y: 16, w: 88, h: 30 }, {
+    on: debug.visible,
+  })) {
+    debug.visible = !debug.visible;
+  }
+
+  ui.endFrame();
+}
 
 let lastTime = performance.now();
 let accumulator = 0;
@@ -126,6 +180,7 @@ function loop(now: number): void {
   }
 
   render();
+  renderUI();
 
   sampleDebug(rawDelta, ticks);
   if (debug.visible) renderDebug();
@@ -133,4 +188,22 @@ function loop(now: number): void {
   requestAnimationFrame(loop);
 }
 
-requestAnimationFrame(loop);
+// --- Arranque ------------------------------------------------------------
+
+// El canvas no espera fuentes: si dibujáramos antes de que Minecraft.ttf esté
+// lista, fillText caería en silencio al fallback. Registrarla también la deja
+// disponible para el CSS del botón.
+async function loadFont(): Promise<void> {
+  const font = new FontFace("Minecraft", `url(${minecraftUrl})`);
+  await font.load();
+  document.fonts.add(font);
+}
+
+loadFont()
+  .catch((err) => console.error("No se pudo cargar Minecraft.ttf:", err))
+  .finally(() => {
+    // Se reinicia el reloj: si no, el primer delta incluiría la carga de la
+    // fuente y el acumulador arrancaría con un salto de ticks.
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  });
