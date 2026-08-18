@@ -1,4 +1,5 @@
 import minecraftUrl from "../assets/Minecraft.ttf";
+import homeBgUrl from "../assets/home_bg.jpeg";
 import { createUI, type Rect } from "./ui/imgui";
 
 const canvasEl = document.getElementById("canvas");
@@ -10,6 +11,7 @@ const canvas = canvasEl;
 const ctx2d = canvas.getContext("2d");
 if (!ctx2d) throw new Error("No se pudo obtener el contexto 2D");
 const ctx = ctx2d;
+ctx.imageSmoothingEnabled = false; // sin filtro bilineal: look pixel-art nítido
 
 // Paso fijo de simulación: la física avanza siempre en incrementos iguales,
 // independientemente de los FPS del navegador. Esto la hace determinista.
@@ -126,6 +128,15 @@ function renderDebug(): void {
 
 const ui = createUI(canvas, ctx);
 
+// Se carga aparte de loadFont: si la imagen no llegó a tiempo, el menú
+// simplemente arranca sin fondo en vez de bloquear el primer frame.
+let menuBgLoaded = false;
+const menuBg = new Image();
+menuBg.onload = () => {
+  menuBgLoaded = true;
+};
+menuBg.src = homeBgUrl;
+
 const BUTTON_W = 190;
 const BUTTON_H = 40;
 const BUTTON_GAP = 12;
@@ -160,10 +171,14 @@ function menuSlot(index: number, total: number): Rect {
 }
 
 function renderUI(): void {
+  if (menuBgLoaded) {
+    ctx.drawImage(menuBg, 0, 0, canvas.width, canvas.height);
+  }
+
   ui.beginFrame();
 
   MENU.forEach((item, i) => {
-    if (ui.button(item.label, menuSlot(i, MENU.length), { id: item.id })) {
+    if (ui.button(item.label, menuSlot(i, MENU.length), { id: item.id, color: "#810b10", borderColor: "#ffffff" })) {
       item.action();
     }
   });

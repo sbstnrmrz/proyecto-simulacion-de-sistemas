@@ -16,6 +16,10 @@ export type ButtonOptions = {
   /** Dibuja el botón en estado encendido (para toggles). */
   on?: boolean;
   disabled?: boolean;
+  /** Color de relleno en hex (ej. "#3a6ea5"); si no se pasa, usa la paleta por defecto. */
+  color?: string;
+  /** Color del borde en hex; si no se pasa, usa la paleta por defecto. */
+  borderColor?: string;
 };
 
 export type UI = {
@@ -36,6 +40,19 @@ const COLORS = {
 };
 
 const FONT = "16px Minecraft, system-ui, sans-serif";
+
+/** Aclara (percent > 0) u oscurece (percent < 0) un color "#rrggbb". */
+function shade(hex: string, percent: number): string {
+  const num = parseInt(hex.slice(1), 16);
+  const channel = (shift: number): number => {
+    const value = (num >> shift) & 0xff;
+    return Math.min(255, Math.max(0, Math.round(value + 255 * percent)));
+  };
+  const r = channel(16);
+  const g = channel(8);
+  const b = channel(0);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
 
 function hits(rect: Rect, x: number, y: number): boolean {
   return (
@@ -128,10 +145,15 @@ export function createUI(
       // apretar y arrastrar afuera cancela, como en cualquier UI nativa.
       const clicked = mouse.released && held;
 
-      let face = COLORS.face;
+      let face: string;
       if (options.on) face = COLORS.faceOn;
-      else if (held) face = COLORS.facePressed;
+      else if (options.color) {
+        if (held) face = shade(options.color, -0.15);
+        else if (hovered) face = shade(options.color, 0.12);
+        else face = options.color;
+      } else if (held) face = COLORS.facePressed;
       else if (hovered) face = COLORS.faceHover;
+      else face = COLORS.face;
 
       ctx.save();
       ctx.globalAlpha = options.disabled ? 0.5 : 1;
@@ -139,7 +161,13 @@ export function createUI(
       ctx.fillStyle = face;
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
 
-      ctx.strokeStyle = hovered ? COLORS.borderHover : COLORS.border;
+      if (options.borderColor) {
+        ctx.strokeStyle = hovered
+          ? shade(options.borderColor, 0.12)
+          : options.borderColor;
+      } else {
+        ctx.strokeStyle = hovered ? COLORS.borderHover : COLORS.border;
+      }
       ctx.lineWidth = 2;
       // El offset de medio píxel evita que el borde salga difuminado entre dos
       // píxeles físicos.
