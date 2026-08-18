@@ -5,7 +5,14 @@
 
 export type Rect = { x: number; y: number; w: number; h: number };
 
-export type ButtonStyle = {
+export type ButtonOptions = {
+  /**
+   * Identidad del widget entre frames. Por defecto es el label, que alcanza
+   * mientras los textos sean únicos; conviene darlo explícito cuando el label
+   * es dinámico o puede repetirse (el label es presentación, el id es
+   * identidad, y no tienen por qué cambiar juntos).
+   */
+  id?: string;
   /** Dibuja el botón en estado encendido (para toggles). */
   on?: boolean;
   disabled?: boolean;
@@ -14,7 +21,7 @@ export type ButtonStyle = {
 export type UI = {
   beginFrame(): void;
   endFrame(): void;
-  button(label: string, rect: Rect, style?: ButtonStyle): boolean;
+  button(label: string, rect: Rect, options?: ButtonOptions): boolean;
 };
 
 const COLORS = {
@@ -48,10 +55,14 @@ export function createUI(
     released: false, // flanco: se soltó desde el frame anterior
   };
 
-  // El widget bajo el cursor y el que se está apretando. Se identifican por
-  // label, así que dos botones no pueden compartir texto en la misma pantalla.
+  // El widget bajo el cursor y el que se está apretando, por id.
   let hot: string | null = null;
   let active: string | null = null;
+
+  // Ids vistos en el frame actual. Un id repetido hace que dos widgets
+  // compartan hover y click, y es un bug difícil de ver a ojo, así que se
+  // avisa en desarrollo. En el build de producción la rama se elimina.
+  const seen = new Set<string>();
 
   // El canvas puede estar escalado por CSS respecto de su resolución interna,
   // así que las coordenadas del puntero se convierten al espacio del canvas.
@@ -84,6 +95,7 @@ export function createUI(
   return {
     beginFrame(): void {
       hot = null;
+      if (import.meta.env.DEV) seen.clear();
     },
 
     endFrame(): void {
@@ -93,24 +105,36 @@ export function createUI(
       canvas.style.cursor = hot ? "pointer" : "default";
     },
 
-    button(label: string, rect: Rect, style: ButtonStyle = {}): boolean {
-      const hovered = !style.disabled && hits(rect, mouse.x, mouse.y);
+    button(label: string, rect: Rect, options: ButtonOptions = {}): boolean {
+      const id = options.id ?? label;
 
-      if (hovered) hot = label;
-      if (hovered && mouse.pressed) active = label;
+      if (import.meta.env.DEV) {
+        if (seen.has(id)) {
+          console.warn(
+            `[ui] id duplicado: "${id}". Los widgets que lo comparten van a ` +
+              `reaccionar juntos; pasá un id explícito en las opciones.`,
+          );
+        }
+        seen.add(id);
+      }
 
-      const held = active === label && hovered;
+      const hovered = !options.disabled && hits(rect, mouse.x, mouse.y);
+
+      if (hovered) hot = id;
+      if (hovered && mouse.pressed) active = id;
+
+      const held = active === id && hovered;
       // El click se confirma al soltar sobre el mismo botón donde se apretó:
       // apretar y arrastrar afuera cancela, como en cualquier UI nativa.
       const clicked = mouse.released && held;
 
       let face = COLORS.face;
-      if (style.on) face = COLORS.faceOn;
+      if (options.on) face = COLORS.faceOn;
       else if (held) face = COLORS.facePressed;
       else if (hovered) face = COLORS.faceHover;
 
       ctx.save();
-      ctx.globalAlpha = style.disabled ? 0.5 : 1;
+      ctx.globalAlpha = options.disabled ? 0.5 : 1;
 
       ctx.fillStyle = face;
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -122,7 +146,7 @@ export function createUI(
       ctx.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
 
       ctx.font = FONT;
-      ctx.fillStyle = style.on ? COLORS.textOn : COLORS.text;
+      ctx.fillStyle = options.on ? COLORS.textOn : COLORS.text;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(

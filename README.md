@@ -58,6 +58,19 @@ declaran en cada frame y la función devuelve si hubo click.
 if (ui.button("Ajustes", { x: 100, y: 60, w: 190, h: 40 })) abrirAjustes();
 ```
 
+Cada widget necesita un **id** estable entre frames: es lo que permite recordar
+cuál está bajo el cursor o apretado. Por defecto se usa el label, pero conviene
+pasarlo explícito, porque el label es presentación (puede cambiar o repetirse) y
+el id es identidad:
+
+```ts
+ui.button("Ajustes", rect, { id: "menu.settings" });
+```
+
+Si dos widgets comparten id en un mismo frame reaccionan juntos al hover y al
+click. En desarrollo eso se avisa por consola; el chequeo se elimina del build
+de producción.
+
 Limitación conocida: al no haber elementos DOM, la UI **no es accesible por
 teclado ni para lectores de pantalla**. Si eso hace falta, la salida habitual es
 mantener botones DOM invisibles en paralelo.

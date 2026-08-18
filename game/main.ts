@@ -130,10 +130,22 @@ const BUTTON_W = 190;
 const BUTTON_H = 40;
 const BUTTON_GAP = 12;
 
-const MENU: { label: string; action: () => void }[] = [
-  { label: "Nueva partida", action: () => console.log("TODO: nueva partida") },
-  { label: "Ajustes", action: () => console.log("TODO: ajustes") },
-  { label: "Salir", action: () => console.log("TODO: salir") },
+const MENU: { id: string; label: string; action: () => void }[] = [
+  {
+    id: "menu.new-game",
+    label: "Nueva partida",
+    action: () => console.log("TODO: nueva partida"),
+  },
+  {
+    id: "menu.settings",
+    label: "Ajustes",
+    action: () => console.log("TODO: ajustes"),
+  },
+  {
+    id: "menu.quit",
+    label: "Salir",
+    action: () => console.log("TODO: salir"),
+  },
 ];
 
 /** Rect del i-ésimo botón de una fila centrada horizontalmente. */
@@ -151,12 +163,13 @@ function renderUI(): void {
   ui.beginFrame();
 
   MENU.forEach((item, i) => {
-    if (ui.button(item.label, menuSlot(i, MENU.length))) item.action();
+    if (ui.button(item.label, menuSlot(i, MENU.length), { id: item.id })) {
+      item.action();
+    }
   });
 
-  if (ui.button("Debug", { x: canvas.width - 104, y: 16, w: 88, h: 30 }, {
-    on: debug.visible,
-  })) {
+  const debugSlot: Rect = { x: canvas.width - 104, y: 16, w: 88, h: 30 };
+  if (ui.button("Debug", debugSlot, { id: "debug.toggle", on: debug.visible })) {
     debug.visible = !debug.visible;
   }
 
