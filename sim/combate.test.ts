@@ -83,7 +83,11 @@ describe("resolución por rondas (ecs. 3.19-3.23)", () => {
     // para deltaB=40, costoA=40 la diferencia (20 vs 60) es indistinguible
     // de "menor que antes" sola, así que se afirma la magnitud exacta.
     const fraccionBajas = (A0 - r.A) / A0;
-    const caidaEsperada = st.params.omegaD + st.params.deltaB * fraccionBajas;
+    // Magnitudes del §2.4 fijas como literales — NO st.params.* — porque este
+    // es un test de calibración: debe fallar tanto si la fórmula invierte el
+    // signo como si alguien pone omegaD: -20 en parametros.ts (la errata que
+    // §5.2 previene). Leer st.params.omegaD cancelaría ambos errores a la vez.
+    const caidaEsperada = 20 /* omegaD */ + 40 /* deltaB */ * fraccionBajas;
     expect(moralAntes - atk.M).toBeCloseTo(caidaEsperada, 10);
   });
 
@@ -98,7 +102,9 @@ describe("resolución por rondas (ecs. 3.19-3.23)", () => {
     const r = resolverBatalla(st, atk.id, objetivo.id, atk.u);
     expect(r.ataqueExitoso).toBe(true);
     const fraccionBajas = (A0 - r.A) / A0;
-    const subidaEsperada = st.params.omegaV - st.params.deltaB * fraccionBajas;
+    // Ídem: literales del §2.4, no st.params.*, para no cancelar un signo
+    // invertido en la fórmula con el mismo signo invertido en el parámetro.
+    const subidaEsperada = 10 /* omegaV */ - 40 /* deltaB */ * fraccionBajas;
     expect(atk.M - moralAntes).toBeCloseTo(subidaEsperada, 10);
   });
 
