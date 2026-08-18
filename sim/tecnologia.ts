@@ -25,9 +25,15 @@ export function mejorTecnologia(j: Jugador): TecId | null {
   return opciones.reduce((a, b) => TECNOLOGIAS[a].C <= TECNOLOGIAS[b].C ? a : b);
 }
 
-export function iniciarInvestigacion(st: Estado, j: Jugador, tec: TecId): void {
-  if (j.investigando) return;
+/**
+ * Arranca la investigación de `tec` si el jugador no tenía otra en curso.
+ * Devuelve `true` si arrancó, `false` si ya había una investigación en
+ * curso (en cuyo caso no la reemplaza ni la toca).
+ */
+export function iniciarInvestigacion(st: Estado, j: Jugador, tec: TecId): boolean {
+  if (j.investigando) return false;
   j.investigando = { tec, t0: st.t };
+  return true;
 }
 
 /**

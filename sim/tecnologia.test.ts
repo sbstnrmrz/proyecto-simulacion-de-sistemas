@@ -52,4 +52,21 @@ describe("tecnología (ecs. 3.11-3.13)", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
     expect(["arado", "herreria", "muralla_seca"]).toContain(mejorTecnologia(st.jugadores[0]));
   });
+
+  it("mejorTecnologia elige la de 300 y no la de 900 cuando ambas están disponibles", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const j = st.jugadores[0];
+    j.tecnologias.add("arado");   // habilita rutas (C=900) junto a herreria/muralla_seca (C=300)
+    const elegida = mejorTecnologia(j);
+    expect(elegida).not.toBe("rutas");
+    expect(["herreria", "muralla_seca"]).toContain(elegida);
+  });
+
+  it("iniciarInvestigacion no reemplaza una investigación en curso", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const j = st.jugadores[0];
+    expect(iniciarInvestigacion(st, j, "arado")).toBe(true);
+    expect(iniciarInvestigacion(st, j, "herreria")).toBe(false);
+    expect(j.investigando?.tec).toBe("arado");
+  });
 });
