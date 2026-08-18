@@ -76,4 +76,26 @@ describe("ANOVA de dos factores (§7)", () => {
     ];
     expect(() => anovaDosFactores(desbalanceado)).toThrow(/balance/i);
   });
+
+  it("rechaza un diseño con una celda completamente vacía", () => {
+    // Distinto del caso anterior: ahí las 4 combinaciones de niveles existían,
+    // sólo con tamaños desiguales (1 vs 2). Acá los dos niveles de A y los dos
+    // de B aparecen por separado en las observaciones, pero la combinación
+    // (a=1, b=1) no tiene ni una sola fila — es el filtrado-que-pierde-una-celda
+    // que la guarda de balance existe para atrapar en silencio.
+    const celdaFaltante: Observacion[] = [
+      { a: 0, b: 0, y: 1 }, { a: 0, b: 0, y: 2 },
+      { a: 0, b: 1, y: 3 }, { a: 0, b: 1, y: 4 },
+      { a: 1, b: 0, y: 5 }, { a: 1, b: 0, y: 6 },
+      // falta (a=1, b=1) por completo
+    ];
+    expect(() => anovaDosFactores(celdaFaltante)).toThrow(/balance/i);
+  });
+
+  it("fCritico es null para un diseño distinto del 3×3 con R=30 del §7", () => {
+    // DATOS es 2×2 con 2 réplicas (glError=4): los valores tabulados 3,03 y
+    // 2,41 son para F(2,261) y F(4,261), no corresponden acá.
+    const t = anovaDosFactores(DATOS);
+    expect(t.fCritico).toBeNull();
+  });
 });

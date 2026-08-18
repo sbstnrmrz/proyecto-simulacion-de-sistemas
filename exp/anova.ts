@@ -12,7 +12,7 @@ export type FilaAnova = {
 export type TablaAnova = {
   a: FilaAnova; b: FilaAnova; ab: FilaAnova;
   error: FilaAnova; total: FilaAnova;
-  fCritico: { efectosPrincipales: number; interaccion: number };
+  fCritico: { efectosPrincipales: number; interaccion: number } | null;
 };
 
 /**
@@ -80,8 +80,13 @@ export function anovaDosFactores(obs: Observacion[]): TablaAnova {
     ab: fila("Interacción A×B", scAB, glAB),
     error: { fuente: "Error", sc: scError, gl: glError, cm: cmError, f: null },
     total: { fuente: "Total", sc: scTotal, gl: glTotal, cm: null, f: null },
-    // Valores críticos al 5 % para el diseño del §7 (gl error = 261).
-    // Con gl del denominador tan alto son prácticamente los asintóticos.
-    fCritico: { efectosPrincipales: 3.03, interaccion: 2.41 },
+    // Valores tabulados de F al 5 % — F(2,261;0,95)=3,03 y F(4,261;0,95)=2,41 —
+    // válidos únicamente para el diseño 3×3 con R=30 réplicas del §7 (glError=261,
+    // gl efectos principales=2, gl interacción=4). No son un cálculo general de F
+    // crítico: para cualquier otro diseño (otros gl) no corresponden, así que se
+    // devuelve null en vez de rotular significancia con el valor equivocado.
+    fCritico: glError === 261 && glA === 2 && glB === 2 && glAB === 4
+      ? { efectosPrincipales: 3.03, interaccion: 2.41 }
+      : null,
   };
 }
