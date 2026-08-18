@@ -94,18 +94,28 @@ describe("despacho de acuerdos (§3.6.2 y §3.8)", () => {
     expect(st.relaciones[0][2]).toBe(st.params.rGuerra);
   });
 
-  it("la propuesta consume siempre un número del generador", () => {
-    const mk = () => {
+  it("consume el mismo número del generador aunque una guarda plausible falle", () => {
+    // Regresión objetivo: un `if (!enGuerra(...)) return;` ANTES del sorteo.
+    // Comparar dos escenarios ambos en guerra no lo detectaría, así que se
+    // despacha la propuesta en los tres escenarios —guerra, sin guerra y con
+    // un jugador inactivo— y se exige que el generador quede EN EL MISMO punto.
+    const despachar = (prep: (st: ReturnType<typeof crearPartida>) => void) => {
       const st = crearPartida(configPorDefecto({ nJugadores: 3, semilla: 7 }));
-      declararGuerra(st, 0, 1);
-      return st;
+      prep(st);
+      insertar(st.lef, st.t, PRIO.ACTIVIDAD, "PROPUESTA_ACUERDO",
+               { de: 0, a: 1, tipo: "tregua" });
+      pasoEvento(st);
+      return st.rng.z;
     };
-    const conPropuesta = mk();
-    insertar(conPropuesta.lef, conPropuesta.t, PRIO.ACTIVIDAD, "PROPUESTA_ACUERDO",
-             { de: 0, a: 1, tipo: "tregua" });
-    pasoEvento(conPropuesta);
-    const sinPropuesta = mk();
-    expect(conPropuesta.rng.z).not.toBe(sinPropuesta.rng.z);
+    const intacto = crearPartida(configPorDefecto({ nJugadores: 3, semilla: 7 })).rng.z;
+
+    const conGuerra = despachar((st) => declararGuerra(st, 0, 1));
+    const sinGuerra = despachar(() => {});                       // R = 0: no hay guerra
+    const inactivo  = despachar((st) => { st.jugadores[1].activo = false; });
+
+    expect(conGuerra).not.toBe(intacto);      // el sorteo ocurrió
+    expect(sinGuerra).toBe(conGuerra);        // y ocurre igual sin guerra
+    expect(inactivo).toBe(conGuerra);         // y con un jugador inactivo
   });
 });
 
@@ -177,5 +187,99 @@ describe("correr() — partida completa", () => {
     for (let i = 0; i < 50; i++) { pasoTurno(x); pasoTurno(y); }
     const juntas = correr(x);
     expect(juntas).toEqual(solo);
+  });
+});
+
+describe("eliminación de un jugador (§5.1)", () => {
+  it("retira ejércitos, acuerdos y su fila/columna de R, y anula sus conquistas", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const j = st.jugadores[1];
+
+    // Un objetivo neutral y el ejército del jugador 1 al lado, con una
+    // conquista ya encolada; el jugador se queda sin territorio este turno.
+    const objetivo = st.provincias.find((p) => p.c === -1)!;
+    const k = [...st.ejercitos.values()].find((e) => e.jugador === j.id)!;
+    for (const p of st.provincias) if (p.c === j.id) p.c = -1;
+
+    st.acuerdos.push({ tipo: "tregua", entre: [0, 1], delta: 5 });
+    st.relaciones[0][1] = st.relaciones[1][0] = st.params.rGuerra;
+    insertar(st.lef, st.t, PRIO.FIN_TURNO, "FIN_TURNO", {});
+    pasoEvento(st);                                   // FIN_TURNO → lo elimina
+
+    expect(j.activo).toBe(false);
+    expect(st.ejercitos.get(k.id)?.vivo ?? false).toBe(false);
+    expect([...st.ejercitos.values()].some((e) => e.vivo && e.jugador === j.id)).toBe(false);
+    expect(st.acuerdos).toHaveLength(0);
+    expect(st.relaciones[0][1]).toBe(0);
+    expect(st.relaciones[1][0]).toBe(0);
+    expect(st.relaciones[1][2]).toBe(0);
+    expect(st.relaciones[2][1]).toBe(0);
+
+    // La conquista encolada se descarta aunque el ejército siguiera en pie:
+    // el campo `jugador` de CONQUISTA_PROVINCIA es lo que la invalida.
+    st.ejercitos.get(k.id)!.vivo = true;
+    insertar(st.lef, st.t, PRIO.CONQUISTA, "CONQUISTA_PROVINCIA",
+             { atacante: k.id, provincia: objetivo.id, jugador: j.id });
+    const e = pasoEvento(st);
+    expect(e!.tipo).toBe("CONQUISTA_PROVINCIA");
+    expect(objetivo.c).toBe(-1);                      // no cambió de dueño
+    expect(j.activo).toBe(false);
+  });
+});
+
+describe("ec. 3.30 — R se actualiza una vez por PAR y por turno", () => {
+  it("un turno mueve R exactamente lo que predice una sola aplicación", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    st.relaciones[0][1] = st.relaciones[1][0] = 50;
+
+    // fronterasCompartidas(0, 1), congelado antes del turno: el FIN_TURNO
+    // aislado no cambia dueños.
+    let f = 0;
+    for (const p of st.provincias)
+      if (p.c === 0) for (const v of p.vecinos) if (st.provincias[v].c === 1) f++;
+
+    const esperado = Math.max(-100, Math.min(100,
+      50 + st.params.nu * (0 - 50) - st.params.zeta * f));
+
+    insertar(st.lef, st.t, PRIO.FIN_TURNO, "FIN_TURNO", {});
+    pasoEvento(st);
+
+    expect(st.relaciones[0][1]).toBeCloseTo(esperado, 10);
+    expect(st.relaciones[1][0]).toBeCloseTo(esperado, 10);
+  });
+
+  it("δ_a decrece un turno por turno, no una vez por jugador", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    st.acuerdos.push({ tipo: "tregua", entre: [0, 1], delta: 10 });
+    insertar(st.lef, st.t, PRIO.FIN_TURNO, "FIN_TURNO", {});
+    pasoEvento(st);
+    expect(st.acuerdos[0].delta).toBe(9);
+  });
+});
+
+describe("aritmética entera y sorteos del §3.6", () => {
+  it("E queda entero tras cada FIN_TURNO (§5.3)", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    for (let i = 0; i < 5; i++) pasoTurno(st);
+    for (const j of st.jugadores) expect(Number.isInteger(j.E)).toBe(true);
+  });
+
+  it("la invasión bárbara sortea el objetivo entre los activos (§3.6.3)", () => {
+    // La fuerza de cada jugador es distinta, así que el tamaño del bárbaro
+    // —perdida(0,1·S_objetivo)— identifica a quién se le apuntó.
+    const objetivos = new Set<number>();
+    // Las semillas se espacian: el LCG arranca casi lineal en z y semillas
+    // consecutivas nunca alcanzan el cuarto tramo de la empírica (U > 0,8).
+    for (let k = 1; k <= 500 && objetivos.size < 2; k++) {
+      const st = crearPartida(configPorDefecto({ nJugadores: 3, semilla: k * 100_003 }));
+      for (const e of st.ejercitos.values())
+        if (e.jugador >= 0) e.S = 1000 * (e.jugador + 1);
+      const antes = st.proximoEjercitoId;
+      insertar(st.lef, st.t, PRIO.EVENTO_ALEATORIO, "EVENTO_ALEATORIO", {});
+      pasoEvento(st);
+      if (st.proximoEjercitoId === antes) continue;   // salió otro evento global
+      objetivos.add(st.ejercitos.get(antes)!.S / 100 - 1);
+    }
+    expect(objetivos.size).toBeGreaterThan(1);
   });
 });

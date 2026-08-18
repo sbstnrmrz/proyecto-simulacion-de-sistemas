@@ -60,10 +60,17 @@ const fronterasCompartidas = (st: Estado, a: number, b: number): number => {
  * ec. 3.30 — deriva hacia la neutralidad y fricción por frontera.
  * En guerra R queda congelado en −100 y sólo lo libera un acuerdo ratificado
  * (§5.5 del spec): no se aplica ni deriva ni fricción.
+ *
+ * R es simétrica y cada llamada escribe LAS DOS celdas del par, así que
+ * llamarla para todos los jugadores aplica la ecuación dos veces por par. El
+ * filtro opcional `incluir` permite recorrer cada par no ordenado una sola vez
+ * (el motor pasa `otro > j.id`). Por omisión, recorre a todos los demás.
  */
-export function actualizarRelaciones(st: Estado, j: Jugador): void {
+export function actualizarRelaciones(
+  st: Estado, j: Jugador, incluir: (otroId: number) => boolean = () => true,
+): void {
   for (const otro of st.jugadores) {
-    if (otro.id === j.id || !otro.activo) continue;
+    if (otro.id === j.id || !otro.activo || !incluir(otro.id)) continue;
     if (enGuerra(st, j.id, otro.id)) continue;
     const R = st.relaciones[j.id][otro.id];
     const deriva = st.params.nu * (0 - R);

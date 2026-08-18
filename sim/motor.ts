@@ -16,7 +16,7 @@ import { decidirIA } from "./ia";
 import { calcularPuntuacion, evaluarVictoria } from "./puntuacion";
 import { distancias, MAPA25 } from "./datos/mapa";
 import { ganancia, perdida } from "./redondeo";
-import type { Estado, MejoraId, Resultado } from "./tipos";
+import type { Estado, Jugador, MejoraId, Resultado } from "./tipos";
 
 const DIST = distancias(MAPA25);
 
@@ -93,7 +93,12 @@ function eventoGlobal(st: Estado): void {
   } else if (v === 2) {                              // descubrimiento de oro
     p.aE *= 1.3;                                     // permanente — §5.4 del spec
   } else {                                           // invasión bárbara
-    const objetivo = st.jugadores.find((j) => j.activo);
+    // §3.6.3 — el objetivo se sortea entre los activos. El sorteo es
+    // INCONDICIONAL y ocupa un punto fijo del flujo: consume exactamente un
+    // número del generador cada vez que sale «invasión», pase lo que pase
+    // después (§3.6.4).
+    const activos = st.jugadores.filter((j) => j.activo);
+    const objetivo = activos[uniformeDiscreta(st.rng, activos.length)];
     if (!objetivo) return;
     let S = 0;
     for (const e of st.ejercitos.values())
@@ -126,7 +131,7 @@ function llegadaDestino(st: Estado, d: any): void {
     k.u = d.destino;
     if (st.provincias[d.destino].c !== k.jugador)
       insertar(st.lef, st.t, PRIO.CONQUISTA, "CONQUISTA_PROVINCIA",
-               { atacante: d.ejercito, provincia: d.destino });
+               { atacante: d.ejercito, provincia: d.destino, jugador: k.jugador });
   }
 }
 
@@ -137,7 +142,7 @@ function batalla(st: Estado, d: any): void {
   const k = st.ejercitos.get(d.atacante);
   if (k && k.vivo) k.u = d.provincia;
   insertar(st.lef, st.t, PRIO.CONQUISTA, "CONQUISTA_PROVINCIA",
-           { atacante: d.atacante, provincia: d.provincia });
+           { atacante: d.atacante, provincia: d.provincia, jugador: k?.jugador });
 }
 
 /** ec. 3.23 — la provincia entra con lealtad baja y propensa a rebelarse. */
@@ -227,6 +232,24 @@ function ratificarAcuerdo(st: Estado, d: any): void {
   });
 }
 
+/**
+ * §5.1 — eliminación de un jugador. No alcanza con `activo = false`: el bucle
+ * de FinTurno saltea a los inactivos, así que sus ejércitos serían inmortales
+ * (ni moral ni deserción), sus acuerdos seguirían vigentes y su fila/columna de
+ * R seguiría arrastrando guerras congeladas. El §5.1 exige retirar las tres
+ * cosas. Las conquistas que dejó encoladas las descarta `entidadesVivas`
+ * gracias al campo `jugador` que llevan los CONQUISTA_PROVINCIA.
+ */
+function eliminarJugador(st: Estado, j: Jugador): void {
+  j.activo = false;
+  for (const e of st.ejercitos.values()) if (e.jugador === j.id) e.vivo = false;
+  st.acuerdos = st.acuerdos.filter((a) => !a.entre.includes(j.id));
+  for (let l = 0; l < st.relaciones.length; l++) {
+    st.relaciones[j.id][l] = 0;
+    st.relaciones[l][j.id] = 0;
+  }
+}
+
 /** §4.3 — los pasos 1 a 9 corren por jugador; el 10, una sola vez. */
 function finTurno(st: Estado): void {
   for (const j of st.jugadores) {
@@ -249,7 +272,9 @@ function finTurno(st: Estado): void {
         p.Pob = Math.max(0, p.Pob - perdida(p.Pob * st.params.phi * sj));
 
     // 5. Balance económico, I+D y quiebra.
-    j.E += I - G - Q;                                // ec. 3.10
+    // ec. 3.10. §5.3: E es entera y se redondea en CADA actualización. Sin
+    // esto un residuo de coma flotante de −1e−13 dispara `verificarQuiebra`.
+    j.E = ganancia(j.E + I - G - Q);
     j.RD += st.params.psi * Q;                       // ec. 3.11
     intentarCompletar(st, j);                        // ec. 3.12
     const quiebra = verificarQuiebra(st, j);
@@ -261,8 +286,8 @@ function finTurno(st: Estado): void {
       desertar(st, e);
     }
 
-    // 8. Diplomacia y lealtad.
-    actualizarRelaciones(st, j);
+    // 8. Diplomacia y lealtad. `actualizarRelaciones` NO va acá: R es simétrica
+    //    y se actualiza por PAR, una sola vez por turno (ver más abajo).
     for (const p of mias) {
       actualizarLealtad(st, p, sj);
       transicionEstado(st, p);
@@ -271,11 +296,18 @@ function finTurno(st: Estado): void {
         if (p.turnosDespoblada >= st.params.chi) { p.c = -1; p.turnosDespoblada = 0; }
       } else p.turnosDespoblada = 0;
     }
-    for (const a of st.acuerdos) a.delta = Math.max(0, a.delta - 1);
-
     // 9. Puntuación.
     j.V = calcularPuntuacion(st, j);
   }
+
+  // 8 bis. ec. 3.30 sobre PARES no ordenados, una vez por turno. Dentro del
+  // bucle por jugador cada par se procesaba una vez por jugador activo y la
+  // constante de tiempo de la deriva quedaba dividida por n.
+  for (const j of st.jugadores)
+    if (j.activo) actualizarRelaciones(st, j, (otro) => otro > j.id);
+
+  // δ_a decrece una vez por TURNO, no una vez por jugador.
+  for (const a of st.acuerdos) a.delta = Math.max(0, a.delta - 1);
 
   // Limpieza y series.
   for (const [id, e] of st.ejercitos) if (!e.vivo) st.ejercitos.delete(id);
@@ -284,7 +316,7 @@ function finTurno(st: Estado): void {
   const N = st.provincias.length;
   for (const j of st.jugadores) {
     const n = st.provincias.filter((p) => p.c === j.id).length;
-    if (j.activo && n === 0) j.activo = false;       // §5.1 — jugador eliminado
+    if (j.activo && n === 0) eliminarJugador(st, j);  // §5.1 — jugador eliminado
     st.series.nFrac[j.id].push(n / N);
     st.series.E[j.id].push(j.E);
     st.series.V[j.id].push(j.V);

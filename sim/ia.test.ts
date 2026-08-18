@@ -145,6 +145,28 @@ describe("guardas del árbol de decisión (§4.5)", () => {
     expect((ev!.datos as { ejercito: number }).ejercito).toBe(capital.id);
   });
 
+  it("Guarda 3: una provincia PROPIA ocupada por un enemigo es objetivo de reconquista (ec. 5.2)", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const j = st.jugadores[0];
+    j.F = 100_000; j.E = 100_000;
+
+    // La provincia 1 pasa a ser de player0 PERO conserva su guarnición neutral
+    // adentro: queda `asediada` con η = 0. El ejército de la capital (0) está
+    // en una provincia vecina, así que la ec. 4.2 le da razón de fuerzas.
+    st.provincias[1].c = 0;
+    // El resto del mapa queda en manos de player1 y en paz: sin esto habría
+    // objetivos externos compitiendo por la utilidad de la ec. 4.4.
+    for (const p of st.provincias) if (p.c !== 0) p.c = 1;
+    st.relaciones[0][1] = st.relaciones[1][0] = 50;   // > rPaz
+
+    decidirIA(st, j);
+    const ev = st.lef.heap.find((e) => e.tipo === "INICIO_MOVIMIENTO");
+    expect(ev).toBeDefined();
+    expect((ev!.datos as { destino: number }).destino).toBe(1);
+    // Reconquistar lo propio no declara guerra contra uno mismo.
+    expect(st.relaciones[0][0]).toBe(0);
+  });
+
   it("Guarda 4: sin objetivos construye o investiga", () => {
     const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
     const j = st.jugadores[0];
@@ -166,6 +188,11 @@ describe("guardas del árbol de decisión (§4.5)", () => {
     // dispararía la Guarda 2 por amenaza).
     st.provincias[1].c = 0; st.provincias[1].Pob = 9000; st.provincias[1].mejoras = [];
     st.provincias[5].c = 0; st.provincias[5].Pob = 500; st.provincias[5].mejoras = [];
+    // Las guarniciones neutrales de 1 y 5 se retiran junto con la provincia:
+    // si quedaran, serían ejércitos enemigos dentro de territorio propio y la
+    // Guarda 3 las tomaría —con razón— como objetivos de reconquista (ec. 5.2).
+    for (const [id, e] of st.ejercitos)
+      if (e.jugador !== 0 && (e.u === 1 || e.u === 5)) st.ejercitos.delete(id);
     st.provincias[0].mejoras = ["mercado"];   // la capital ya tiene mercado: debe quedar excluida
     st.provincias[0].Pob = 50_000;            // sería la elegida si el filtro ignorara el mercado
     for (const id of [2, 6, 10]) st.provincias[id].c = 1;

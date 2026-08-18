@@ -117,13 +117,26 @@ export function decidirIA(st: Estado, j: Jugador): void {
 
   // --- Guarda 3: existe un objetivo rentable ---
   const adyacentes = new Set<number>();
-  for (const p of mias) for (const v of p.vecinos)
-    if (st.provincias[v].c !== j.id) adyacentes.add(v);
+  for (const p of mias) {
+    for (const v of p.vecinos)
+      if (st.provincias[v].c !== j.id) adyacentes.add(v);
+    // ec. 5.2 — una provincia PROPIA con un ejército enemigo adentro (un rival
+    // que ganó la batalla contra otra guarnición, o una invasión bárbara del
+    // §3.6.3) queda `asediada` con η = 0. Si no fuera candidata, el asedio
+    // sería permanente: nadie más la va a atacar. Es objetivo de reconquista y
+    // usa la misma maquinaria de batalla.
+    const ocupada = [...st.ejercitos.values()].some(
+      (e) => e.vivo && e.S > 0 && e.u === p.id && e.jugador !== j.id);
+    if (ocupada) adyacentes.add(p.id);
+  }
 
   const candidatas = [...adyacentes].filter((id) => {
     if (razonFuerzas(st, id, j.id) < P.rhoMin) return false;
     const dueno = st.provincias[id].c;
-    return dueno === -1 || st.relaciones[j.id][dueno] <= P.rPaz;
+    // Una provincia propia ocupada (dueño = j) no pasa por el filtro de
+    // relaciones: reconquistar lo propio no necesita casus belli, igual que
+    // atacar una neutral.
+    return dueno === -1 || dueno === j.id || st.relaciones[j.id][dueno] <= P.rPaz;
   });
 
   if (candidatas.length > 0 && ejs.length > 0) {
@@ -134,7 +147,8 @@ export function decidirIA(st: Estado, j: Jugador): void {
       if (u > mejorU) { mejorU = u; mejor = id; mejorK = k.id; }
     }
     const dueno = st.provincias[mejor].c;
-    if (dueno !== -1 && !enGuerra(st, j.id, dueno)) declararGuerra(st, j.id, dueno);
+    if (dueno !== -1 && dueno !== j.id && !enGuerra(st, j.id, dueno))
+      declararGuerra(st, j.id, dueno);
     const k = st.ejercitos.get(mejorK)!;
     insertar(st.lef, st.t, PRIO.ACTIVIDAD, "INICIO_MOVIMIENTO",
              { ejercito: mejorK, destino: mejor, origen: k.u });
