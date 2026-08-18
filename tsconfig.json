@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "skipLibCheck": true
   },
-  "include": ["game", "sim", "exp"]
+  "include": ["game", "sim", "exp", "ui"]
 }
