@@ -59,6 +59,17 @@ describe("lealtad (ecs. 3.31-3.32)", () => {
     for (let i = 0; i < 20; i++) actualizarLealtad(st, p, 1);
     expect(p.lealtad).toBeGreaterThanOrEqual(0);
   });
+
+  it("Pob = 0 no aporta bonificación de guarnición (ec. 3.32)", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    const p = st.provincias.find((x) => x.c === 0)!;
+    p.Pob = 0;
+    p.lealtad = 50;
+    // sin guarnición propia en p, y sin escasez (sj = 0): la lealtad solo se
+    // mueve por el término de equilibrio de la ec. 3.31, sin bonificación g.
+    actualizarLealtad(st, p, 0);
+    expect(p.lealtad).toBeCloseTo(50 + st.params.rhoLambda * (st.params.lambdaEq - 50), 9);
+  });
 });
 
 describe("transición de estado con histéresis (ec. 5.2)", () => {

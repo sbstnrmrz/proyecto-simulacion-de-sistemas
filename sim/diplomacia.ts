@@ -53,9 +53,12 @@ export function actualizarLealtad(st: Estado, p: Provincia, sj: number): void {
     if (e.vivo && e.u === p.id && e.jugador === p.c) guarnicion += e.S;
 
   // ec. 3.32 — un soldado por cada cien habitantes da la bonificación completa.
+  // Con Pob = 0 no hay habitantes cuya lealtad medir ni guarnición que premiar:
+  // la bonificación es 0, no el máximo (una provincia despoblada no puede quedar
+  // mejor tratada que una poblada con guarnición parcial).
   const g = p.Pob > 0
     ? P.zetaM * Math.min(1, guarnicion / (0.01 * p.Pob))
-    : P.zetaM;
+    : 0;
 
   const guerra = st.jugadores.some(
     (o) => o.activo && o.id !== p.c && enGuerra(st, p.c, o.id)) ? 1 : 0;
