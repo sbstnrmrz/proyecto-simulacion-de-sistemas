@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Partida — Age of Conquest IV</title>
+    <style>
+      :root {
+        --asediada: #b45309;
+        --rebelde: #b91c1c;
+        --guerra: #fee2e2;
+        --eliminado: #9ca3af;
+      }
+      body { font: 14px ui-monospace, monospace; margin: 2rem; max-width: 72rem; }
+      table { border-collapse: collapse; margin: 0.5rem 0 1.5rem; font-size: 13px; }
+      th, td { border: 1px solid #999; padding: 0.25rem 0.5rem; text-align: right; }
+      th { background: #eee; }
+      td.txt, th.txt { text-align: left; }
+      h2 { margin: 2rem 0 0.5rem; font-size: 15px; }
+      .nota { color: #555; font-size: 13px; max-width: 46rem; }
+      button, input, select { font: inherit; padding: 0.3rem 0.7rem; }
+      button:disabled { color: #999; }
+      .controles { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.5rem 0; }
+      .reloj { font-size: 16px; margin: 1rem 0 0.25rem; }
+      .asediada { color: var(--asediada); }
+      .rebelde  { color: var(--rebelde); font-weight: bold; }
+      .eliminado { color: var(--eliminado); }
+      .guerra { background: var(--guerra); }
+      .diagonal { background: #f3f4f6; color: #9ca3af; }
+      #log { max-height: 22rem; overflow-y: auto; border: 1px solid #ccc; padding: 0.5rem; }
+      #log table { margin: 0; border: none; }
+      #log td { border: none; padding: 0.1rem 0.5rem; }
+      .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <h1>Observación de una partida</h1>
+    <p class="nota">
+      Cada paso consume un evento de la Lista de Eventos Futuros. La clave
+      <code>(t, p, sec)</code> del log es la que ordena la cola: turno, clase de
+      prioridad y orden de encolado. Es lo que hace que la simulación sea
+      reproducible con la misma semilla.
+    </p>
+
+    <div class="controles">
+      <label>semilla <input id="semilla" type="number" value="12345" style="width: 7rem"></label>
+      <label>jugadores
+        <select id="jugadores"><option>3</option><option selected>5</option><option>8</option></select>
+      </label>
+      <label>γ <input id="gamma" type="number" value="0.10" step="0.01" style="width: 5rem"></label>
+      <button id="nueva">Nueva partida</button>
+    </div>
+
+    <div class="reloj" id="reloj"></div>
+    <div class="controles">
+      <button id="evento">Un evento</button>
+      <button id="turno">Un turno</button>
+      <button id="fin">Hasta el final</button>
+      <button id="auto">Auto</button>
+    </div>
+
+    <div id="salida"></div>
+    <h2>Eventos</h2>
+    <div id="log"></div>
+
+    <script type="module" src="/ui/main.ts"></script>
+  </body>
+</html>

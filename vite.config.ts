@@ -6,6 +6,7 @@ export default defineConfig({
       input: {
         main: "index.html",
         experimento: "experimento.html",
+        partida: "partida.html",
       },
     },
   },
