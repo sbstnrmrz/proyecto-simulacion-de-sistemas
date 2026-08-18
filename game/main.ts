@@ -137,23 +137,23 @@ const MENU: { id: string; label: string; action: () => void }[] = [
     action: () => console.log("TODO: nueva partida"),
   },
   {
+    id: "menu.load-game",
+    label: "Cargar partida",
+    action: () => console.log("TODO: cargar partida"),
+  },
+  {
     id: "menu.settings",
     label: "Ajustes",
     action: () => console.log("TODO: ajustes"),
   },
-  {
-    id: "menu.quit",
-    label: "Salir",
-    action: () => console.log("TODO: salir"),
-  },
 ];
 
-/** Rect del i-ésimo botón de una fila centrada horizontalmente. */
+/** Rect del i-ésimo botón de una columna centrada en el canvas. */
 function menuSlot(index: number, total: number): Rect {
-  const rowWidth = total * BUTTON_W + (total - 1) * BUTTON_GAP;
+  const columnHeight = total * BUTTON_H + (total - 1) * BUTTON_GAP;
   return {
-    x: (canvas.width - rowWidth) / 2 + index * (BUTTON_W + BUTTON_GAP),
-    y: canvas.height - BUTTON_H - 24,
+    x: (canvas.width - BUTTON_W) / 2,
+    y: (canvas.height - columnHeight) / 2 + index * (BUTTON_H + BUTTON_GAP),
     w: BUTTON_W,
     h: BUTTON_H,
   };
@@ -204,8 +204,7 @@ function loop(now: number): void {
 // --- Arranque ------------------------------------------------------------
 
 // El canvas no espera fuentes: si dibujáramos antes de que Minecraft.ttf esté
-// lista, fillText caería en silencio al fallback. Registrarla también la deja
-// disponible para el CSS del botón.
+// lista, fillText caería en silencio al fallback.
 async function loadFont(): Promise<void> {
   const font = new FontFace("Minecraft", `url(${minecraftUrl})`);
   await font.load();
