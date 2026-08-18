@@ -44,6 +44,17 @@ Abrir la URL que imprime la consola, normalmente <http://localhost:5173>.
 └── tsconfig.json
 ```
 
+## Debug
+
+El botón **Debug** (arriba a la izquierda) muestra u oculta un overlay dibujado
+sobre el canvas con:
+
+- **FPS** — frames por segundo, promediados en ventanas de 0.5 s.
+- **Frame** — milisegundos por frame (el inverso de los FPS, útil para ver el costo real).
+- **Ticks/f** — cuántos ticks de simulación se ejecutaron en el último frame.
+  En régimen normal alterna entre 0 y 1; valores altos y sostenidos significan
+  que la simulación no llega a seguirle el ritmo al reloj.
+
 ## Sobre el game loop
 
 El loop usa **paso fijo con acumulador**: `update()` siempre avanza exactamente

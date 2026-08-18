@@ -17,9 +17,30 @@
         background: #fff;
         border: 1px solid #444;
       }
+      #debug-toggle {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        padding: 6px 12px;
+        font: 13px system-ui, sans-serif;
+        color: #ddd;
+        background: #333;
+        border: 1px solid #555;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #debug-toggle:hover {
+        background: #3d3d3d;
+      }
+      #debug-toggle[aria-pressed="true"] {
+        color: #111;
+        background: #7ddf7d;
+        border-color: #7ddf7d;
+      }
     </style>
   </head>
   <body>
+    <button id="debug-toggle" type="button" aria-pressed="true">Debug</button>
     <canvas id="canvas" width="800" height="600"></canvas>
 
     <script type="module" src="/game/main.ts"></script>

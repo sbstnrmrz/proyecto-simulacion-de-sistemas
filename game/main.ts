@@ -56,21 +56,80 @@ function render(): void {
   ctx.fillRect(state.x, state.y, state.size, state.size);
 }
 
+// --- Debug ---------------------------------------------------------------
+
+// Los FPS se promedian sobre una ventana en vez de calcularse frame a frame:
+// 1/delta instantáneo salta tanto entre frames que el número es ilegible.
+const DEBUG_WINDOW = 0.5; // segundos entre refrescos del contador
+
+const debug = {
+  visible: true,
+  frames: 0, // frames acumulados en la ventana actual
+  elapsed: 0, // segundos acumulados en la ventana actual
+  fps: 0,
+  frameMs: 0,
+  ticks: 0, // ticks de simulación del último frame
+};
+
+function sampleDebug(rawDelta: number, ticks: number): void {
+  debug.frames++;
+  debug.elapsed += rawDelta;
+  debug.ticks = ticks;
+
+  if (debug.elapsed >= DEBUG_WINDOW) {
+    debug.fps = debug.frames / debug.elapsed;
+    debug.frameMs = (debug.elapsed * 1000) / debug.frames;
+    debug.frames = 0;
+    debug.elapsed = 0;
+  }
+}
+
+function renderDebug(): void {
+  const lines = [
+    `FPS       ${debug.fps.toFixed(1)}`,
+    `Frame     ${debug.frameMs.toFixed(2)} ms`,
+    `Ticks/f   ${debug.ticks}`,
+  ];
+
+  ctx.save();
+  ctx.font = "13px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.textBaseline = "top";
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  ctx.fillRect(8, 8, 150, lines.length * 16 + 10);
+
+  ctx.fillStyle = "#7ddf7d";
+  lines.forEach((line, i) => ctx.fillText(line, 14, 13 + i * 16));
+  ctx.restore();
+}
+
+const toggle = document.getElementById("debug-toggle");
+toggle?.addEventListener("click", () => {
+  debug.visible = !debug.visible;
+  toggle.setAttribute("aria-pressed", String(debug.visible));
+});
+
 let lastTime = performance.now();
 let accumulator = 0;
 
 function loop(now: number): void {
-  let frameTime = (now - lastTime) / 1000;
+  const rawDelta = (now - lastTime) / 1000; // sin recortar: es el costo real del frame
   lastTime = now;
-  if (frameTime > MAX_FRAME) frameTime = MAX_FRAME;
 
-  accumulator += frameTime;
+  accumulator += Math.min(rawDelta, MAX_FRAME);
+
+  let ticks = 0;
   while (accumulator >= STEP) {
     update(STEP);
     accumulator -= STEP;
+    ticks++;
   }
 
   render();
+
+  sampleDebug(rawDelta, ticks);
+  if (debug.visible) renderDebug();
+
   requestAnimationFrame(loop);
 }
 
