@@ -38,7 +38,7 @@ describe("ANOVA de dos factores (§7)", () => {
 
   it("F = CM del efecto sobre CM del error", () => {
     const t = anovaDosFactores(DATOS);
-    expect(t.a.f).toBeCloseTo(t.a.cm / t.error.cm, 8);
+    expect(t.a.f).toBeCloseTo(t.a.cm! / t.error.cm!, 8);
     expect(t.b.f!).toBeGreaterThan(t.a.f!);   // el efecto de B es mayor
   });
 
