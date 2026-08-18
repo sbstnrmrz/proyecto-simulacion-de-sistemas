@@ -26,4 +26,6 @@ export const PARAMS: Parametros = {
 
   // §4.4 del spec — no están en el modelo
   loteMin: 50, turnosEntrenamiento: 2, moralRecluta: 70,
+  kmaxNegociacion: 3,   // §3.6.2: duración de negociación ~ Uniforme discreta {1..kmax}
+  duracionTregua: 10,   // turnos que dura la tregua ratificada
 };

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { enGuerra, declararGuerra, actualizarRelaciones, actualizarLealtad, transicionEstado } from "./diplomacia";
+import {
+  enGuerra, declararGuerra, actualizarRelaciones, actualizarLealtad, transicionEstado,
+  vecinoMasFuerte,
+} from "./diplomacia";
 import { crearPartida, configPorDefecto } from "./inicial";
 
 describe("diplomacia (ec. 3.30)", () => {
@@ -32,6 +35,37 @@ describe("diplomacia (ec. 3.30)", () => {
     for (let i = 0; i < 50; i++) actualizarRelaciones(st, st.jugadores[0]);
     expect(st.relaciones[0][1]).toBeGreaterThanOrEqual(-100);
     expect(st.relaciones[0][1]).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("vecinoMasFuerte (§4.5)", () => {
+  it("elige, entre los vecinos de frontera, al de mayor fuerza total", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    // Provincias 1 y 5, vecinas de la capital de player0 (provincia 0), pasan
+    // a player1 y player2 respectivamente.
+    st.provincias[1].c = 1;
+    st.provincias[5].c = 2;
+    const e1 = [...st.ejercitos.values()].find((e) => e.u === 1)!;
+    const e2 = [...st.ejercitos.values()].find((e) => e.u === 5)!;
+    e1.jugador = 1; e1.S = 1000;
+    e2.jugador = 2; e2.S = 200;
+    expect(vecinoMasFuerte(st, st.jugadores[0])).toBe(1);
+  });
+
+  it("desempata por menor id cuando las fuerzas son iguales", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    st.provincias[1].c = 1;
+    st.provincias[5].c = 2;
+    const e1 = [...st.ejercitos.values()].find((e) => e.u === 1)!;
+    const e2 = [...st.ejercitos.values()].find((e) => e.u === 5)!;
+    e1.jugador = 1; e1.S = 500;
+    e2.jugador = 2; e2.S = 500;
+    expect(vecinoMasFuerte(st, st.jugadores[0])).toBe(1);
+  });
+
+  it("devuelve null si no hay frontera con ningún jugador activo", () => {
+    const st = crearPartida(configPorDefecto({ nJugadores: 3 }));
+    expect(vecinoMasFuerte(st, st.jugadores[0])).toBe(null);
   });
 });
 

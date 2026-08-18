@@ -18,6 +18,37 @@ export function declararGuerra(st: Estado, a: number, b: number): void {
   st.relaciones[b][a] = st.params.rGuerra;
 }
 
+const fuerzaTotal = (st: Estado, j: number): number => {
+  let s = 0;
+  for (const e of st.ejercitos.values()) if (e.vivo && e.jugador === j) s += e.S;
+  return s;
+};
+
+/**
+ * §4.5 — VecinoMasFuerte(j): jugador activo que comparte frontera con `j` y
+ * tiene mayor fuerza total en efectivos. `st.jugadores` está en orden
+ * ascendente de id y sólo se reemplaza el mejor con una fuerza estrictamente
+ * mayor, así que un empate se resuelve siempre a favor del menor id.
+ * `null` si `j` no comparte frontera con nadie.
+ */
+export function vecinoMasFuerte(st: Estado, j: Jugador): number | null {
+  const vecinos = new Set<number>();
+  for (const p of st.provincias) {
+    if (p.c !== j.id) continue;
+    for (const v of p.vecinos) {
+      const c = st.provincias[v].c;
+      if (c !== -1 && c !== j.id) vecinos.add(c);
+    }
+  }
+  let mejor: number | null = null, mejorFuerza = -Infinity;
+  for (const otro of st.jugadores) {
+    if (!otro.activo || !vecinos.has(otro.id)) continue;
+    const f = fuerzaTotal(st, otro.id);
+    if (f > mejorFuerza) { mejorFuerza = f; mejor = otro.id; }
+  }
+  return mejor;
+}
+
 const fronterasCompartidas = (st: Estado, a: number, b: number): number => {
   let f = 0;
   for (const p of st.provincias)

@@ -3,7 +3,7 @@ import { MAPA25, distancias } from "./datos/mapa";
 import { COSTO_CASTILLO, COSTO_MEJORA } from "./datos/mejoras";
 import { consumo, gasto } from "./economia";
 import { factorCalidad } from "./combate";
-import { declararGuerra, enGuerra } from "./diplomacia";
+import { declararGuerra, enGuerra, vecinoMasFuerte } from "./diplomacia";
 import { iniciarInvestigacion, mejorTecnologia } from "./tecnologia";
 import { ganancia } from "./redondeo";
 import type { Estado, Jugador } from "./tipos";
@@ -88,6 +88,10 @@ export function decidirIA(st: Estado, j: Jugador): void {
     const rica = mias.reduce((a, b) => (b.Pob > a.Pob ? b : a));
     insertar(st.lef, st.t, PRIO.ACTIVIDAD, "INICIO_CONSTRUCCION",
              { provincia: rica.id, mejora: "mercado", jugador: j.id });
+    // §4.5: ProponerTregua(j, VecinoMasFuerte(j)) — sólo tiene sentido si hay guerra en curso.
+    const rival = vecinoMasFuerte(st, j);
+    if (rival !== null && enGuerra(st, j.id, rival))
+      insertar(st.lef, st.t, PRIO.ACTIVIDAD, "PROPUESTA_ACUERDO", { de: j.id, a: rival, tipo: "tregua" });
     return;
   }
 

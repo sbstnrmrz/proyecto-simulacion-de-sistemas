@@ -32,6 +32,7 @@ export type Parametros = {
   w1: number; w2: number; w3: number; w4: number;
   // §4.4 del spec — reclutamiento (no está en el modelo)
   loteMin: number; turnosEntrenamiento: number; moralRecluta: number;
+  kmaxNegociacion: number; duracionTregua: number;
 };
 
 export type Jugador = {
