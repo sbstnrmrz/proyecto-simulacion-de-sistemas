@@ -1,6 +1,17 @@
-# Age of Conquest
+# Age of Conquest IV — simulador
 
-Simulador con canvas y game loop de paso fijo, en TypeScript.
+Simulación de eventos discretos del modelo formalizado en el Parcial II de
+Simulación de Sistemas: un conjunto de imperios que compiten sobre un mapa de
+provincias, gobernados por las mismas ecuaciones de población, alimento,
+economía, tecnología, combate, moral, diplomacia y lealtad, con decisiones
+emitidas por un árbol de decisión determinista de IA.
+
+El motor (`sim/`) es **headless**: no toca el DOM, no dibuja nada y no corre
+contra un reloj de pared. El tiempo avanza al próximo evento de una Lista de
+Eventos Futuros (LEF), no de a un turno fijo. Dada la misma semilla, una
+corrida es reproducible bit a bit — el generador de aleatoriedad es propio
+(congruencial lineal) y vive en el estado, no en el módulo, para que corridas
+concurrentes del batch no lo compartan.
 
 ## Requisitos
 
@@ -15,86 +26,99 @@ pnpm install
 
 ## Ejecución
 
-Levantar el servidor de desarrollo (con recarga en caliente):
-
 ```bash
 pnpm dev
 ```
 
-Abrir la URL que imprime la consola, normalmente <http://localhost:5173>.
+Abrir la URL que imprime la consola (normalmente <http://localhost:5173>).
+Hay tres páginas, servidas todas por ese mismo comando:
+
+| Página | Qué muestra |
+| --- | --- |
+| `/index.html` | Portada, con los enlaces a las otras dos. |
+| `/partida.html` | Observación de una partida evento por evento: cola de la LEF, tablas de jugadores/provincias/ejércitos/relaciones y el gráfico de territorio. |
+| `/experimento.html` | El factorial 3×3 completo del plan de experimentación — 270 corridas, con su ANOVA de dos factores y exportación a CSV. |
+
+**Importante:** estas páginas necesitan ser servidas por `pnpm dev` o
+`pnpm preview` (o cualquier servidor HTTP). Abrirlas directo desde el
+filesystem (`file://...`) no funciona: ni los módulos ES que cargan
+(`<script type="module">`) ni las rutas absolutas (`/ui/main.ts`,
+`/exp/main.ts`) resuelven bajo ese protocolo.
 
 ## Otros comandos
 
 | Comando | Qué hace |
 | --- | --- |
-| `pnpm dev` | Servidor de desarrollo con hot reload |
-| `pnpm build` | Chequea tipos y genera el build de producción en `dist/` |
+| `pnpm dev` | Servidor de desarrollo con hot reload, sirve las tres páginas |
+| `pnpm build` | Chequea tipos y genera el build de producción en `dist/` (tres entradas: `index.html`, `partida.html`, `experimento.html`) |
 | `pnpm preview` | Sirve localmente el contenido de `dist/` para probar el build |
+| `pnpm test` | Corre la suite de Vitest |
 | `pnpm exec tsc --noEmit` | Solo chequeo de tipos, sin generar archivos |
+
+`pnpm test` corre cerca de 200 pruebas, entre ellas la traza de verificación
+del §4.6 del documento de formalización (reproducida evento a evento contra
+los números que el propio documento da) y una corrida completa de las 270
+combinaciones del plan de experimentación del §7, verificando que el ANOVA
+resultante es válido.
 
 ## Estructura
 
+El árbol real del simulador vive en tres carpetas. La lista de abajo es a la
+vez la matriz de trazabilidad del §6 del documento: qué módulo implementa qué
+subsistema.
+
 ```
-.
-├── index.html        # Página con el <canvas> centrado; carga el módulo TS
-├── assets/
-│   └── Minecraft.ttf # Fuente de píxeles, cargada vía FontFace antes del loop
-├── game/
-│   ├── main.ts       # Game loop: update() + render()
-│   └── ui/
-│       └── imgui.ts  # UI de modo inmediato dibujada en el canvas
-├── package.json
-├── pnpm-lock.yaml
-└── tsconfig.json
+sim/                    — el motor, sin DOM
+├── tipos.ts            — Estado, Config, Jugador, Provincia, Ejército: el diccionario de variables
+├── lef.ts              — Lista de Eventos Futuros: cola de prioridad por (t, prioridad, orden de encolado)
+├── motor.ts            — dispatcher de eventos y pasoEvento(): el bucle principal
+├── inicial.ts          — construcción del estado inicial y configPorDefecto()
+├── rng.ts              — generador congruencial lineal propio + transformada inversa
+├── poblacion.ts        — dinámica poblacional logística (ecs. 3.1–3.2)
+├── economia.ts         — subsistemas alimentario y económico (ecs. 3.3–3.10)
+├── tecnologia.ts        — acumulación de investigación y bonificaciones aditivas (ecs. 3.11–3.13)
+├── combate.ts           — combate estocástico de Lanchester (ecs. 3.14–3.21)
+├── moral.ts             — tasa de deserción por partes (ecs. 3.26–3.28)
+├── diplomacia.ts        — matriz de relaciones, guerra y acuerdos (ecs. 3.29–3.31)
+├── ia.ts                — árbol de decisión determinista de la IA (§4.2–4.4)
+├── puntuacion.ts        — puntuación V y las tres condiciones de victoria (ec. 3.33)
+├── redondeo.ts          — disciplina de saturación y redondeo de pérdidas (§1.2, §5.3)
+├── invariantes.ts       — dominios del §2.1 como aserciones vivas, corridas en los tests
+└── datos/               — mapa de 25 provincias, catálogo de tecnologías, mejoras, parámetros por defecto
+
+exp/                    — runner de experimentos y análisis estadístico (§7)
+├── runner.ts            — corre el factorial 3×3 × 30 réplicas
+├── metricas.ts           — resumen por celda (media, IC al 95 %)
+├── anova.ts              — ANOVA de dos factores
+├── csv.ts                — exportación de las corridas
+└── main.ts               — controlador de experimento.html
+
+ui/                     — interfaz de observación (§6 del documento)
+├── main.ts               — controlador de partida.html: pasoEvento() por clic, o en bucle
+├── vista.ts              — proyección del Estado a filas de tabla
+└── grafico.ts             — SVG del territorio por jugador a lo largo del tiempo
 ```
 
-## UI
+La interfaz es DOM puro (`<button>`, `<input>`, `<select>`), con un SVG
+marcado `role="img"` y `aria-label` para el gráfico de territorio — es
+navegable por teclado y por lector de pantalla.
 
-La interfaz se dibuja dentro del canvas con un esquema de **modo inmediato**
-(`game/ui/imgui.ts`): los botones no son objetos que viven entre frames, se
-declaran en cada frame y la función devuelve si hubo click.
+## `game/`
 
-```ts
-if (ui.button("Ajustes", { x: 100, y: 60, w: 190, h: 40 })) abrirAjustes();
-```
+`game/` y `assets/` son el prototipo de una versión anterior del proyecto: un
+canvas con game loop de paso fijo y una UI de modo inmediato dibujada sobre
+él. Quedan desconectados a propósito — ninguna de las tres páginas los carga
+ni el build los referencia — y se conservan en disco solo como historial.
+`assets/` (la fuente de píxeles y el fondo) pertenece exclusivamente a ese
+prototipo y no entra al build de producción.
 
-Cada widget necesita un **id** estable entre frames: es lo que permite recordar
-cuál está bajo el cursor o apretado. Por defecto se usa el label, pero conviene
-pasarlo explícito, porque el label es presentación (puede cambiar o repetirse) y
-el id es identidad:
+## Divergencias respecto del documento de formalización
 
-```ts
-ui.button("Ajustes", rect, { id: "menu.settings" });
-```
-
-Si dos widgets comparten id en un mismo frame reaccionan juntos al hover y al
-click. En desarrollo eso se avisa por consola; el chequeo se elimina del build
-de producción.
-
-Limitación conocida: al no haber elementos DOM, la UI **no es accesible por
-teclado ni para lectores de pantalla**. Si eso hace falta, la salida habitual es
-mantener botones DOM invisibles en paralelo.
-
-## Debug
-
-El botón **Debug** (arriba a la derecha) muestra u oculta un overlay dibujado
-sobre el canvas con:
-
-- **FPS** — frames por segundo, promediados en ventanas de 0.5 s.
-- **Frame** — milisegundos por frame (el inverso de los FPS, útil para ver el costo real).
-- **Ticks/f** — cuántos ticks de simulación se ejecutaron en el último frame.
-  En régimen normal alterna entre 0 y 1; valores altos y sostenidos significan
-  que la simulación no llega a seguirle el ritmo al reloj.
-
-## Sobre el game loop
-
-El loop usa **paso fijo con acumulador**: `update()` siempre avanza exactamente
-`1/60` de segundo, sin importar los FPS reales del navegador. Esto hace que la
-simulación sea determinista y reproducible entre máquinas, a diferencia de
-integrar con el delta variable de cada frame.
-
-- El `while` ejecuta los ticks necesarios para alcanzar el tiempo real (0, 1 o varios por frame).
-- `MAX_FRAME` limita el salto máximo por frame para evitar la "espiral de la muerte"
-  tras un freeze (por ejemplo, al cambiar de pestaña).
-- `update()` (física) y `render()` (dibujo) están separadas: para agregar tu
-  simulación, modificá `update` y el tipo `State`.
+El código no sigue el documento del Parcial II de forma literal en todos los
+puntos: hay divergencias deliberadas donde el documento es ambiguo o
+internamente contradictorio, y defectos del propio documento que el
+simulador documenta con pruebas en vez de corregir en silencio (por ejemplo,
+la afirmación de que las puntuaciones de todos los jugadores suman a lo sumo
+100, que no se sostiene porque el término tecnológico no es exclusivo entre
+jugadores). Las seis divergencias y los tres defectos están documentados en
+el diseño del proyecto, con su resolución y el motivo de cada una.

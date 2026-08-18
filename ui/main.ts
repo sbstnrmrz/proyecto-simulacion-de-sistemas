@@ -17,11 +17,18 @@ let log: Evento[] = [];
 let auto: number | null = null;
 
 function nuevaPartida(): void {
+  const semillaLeida = Number((<HTMLInputElement>$("semilla")).value);
+  const semilla = Number.isFinite(semillaLeida) && Number.isInteger(semillaLeida)
+    ? semillaLeida
+    : 1;
   const cfg = configPorDefecto({
-    semilla: Number((<HTMLInputElement>$("semilla")).value) || 1,
+    semilla,
     nJugadores: Number((<HTMLSelectElement>$("jugadores")).value),
   });
-  cfg.params.gamma = Number((<HTMLInputElement>$("gamma")).value) || cfg.params.gamma;
+  const gammaLeida = Number((<HTMLInputElement>$("gamma")).value);
+  cfg.params.gamma = Number.isFinite(gammaLeida) && gammaLeida >= 0
+    ? gammaLeida
+    : cfg.params.gamma;
   st = crearPartida(cfg);
   log = [];
   detenerAuto();
@@ -76,8 +83,11 @@ function alternarAuto(): void {
 function pintarReloj(): void {
   const ultimo = log[log.length - 1];
   const d = ultimo ? describirEvento(ultimo) : null;
+  const ganador = st.fin && st.fin.ganador >= 0
+    ? `gana el jugador ${st.fin.ganador}`
+    : "sin ganador";
   const fin = st.fin
-    ? ` — terminada por ${st.fin.motivo}, gana el jugador ${st.fin.ganador}`
+    ? ` — terminada por ${st.fin.motivo}, ${ganador}`
     : "";
   $("reloj").textContent = d
     ? `t = ${st.t}   último evento: ${d.clave} ${d.tipo}${fin}`

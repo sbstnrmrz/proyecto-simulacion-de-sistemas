@@ -44,7 +44,7 @@ export function graficoTerritorio(series: number[][]): string {
     aria-label="Fracción del mapa controlada por cada jugador a lo largo de la partida">
     <line x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="#94a3b8" />
     <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#94a3b8" />
-    ${techo >= 0.4 ? umbral(0.4, "40 %") : ""}
+    ${umbral(0.4, "40 %")}
     ${umbral(0.2, "20 %")}
     ${lineas}
     <text x="${x1}" y="${ALTO - 6}" text-anchor="end" font-size="11" fill="#64748b">turno ${turnos}</text>
