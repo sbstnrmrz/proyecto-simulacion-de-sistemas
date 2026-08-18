@@ -1,29 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Age of Conquest</title>
+    <title>Age of Conquest IV</title>
     <style>
-      body {
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #222;
-      }
-      canvas {
-        background: #fff;
-        border: 1px solid #444;
-      }
+      body { font: 14px ui-monospace, monospace; margin: 2rem; max-width: 60rem; }
+      .nota { color: #555; font-size: 13px; max-width: 46rem; }
+      ul { line-height: 1.8; }
     </style>
   </head>
   <body>
-    <canvas id="canvas" width="800" height="600"></canvas>
-
-    <p><a href="/experimento.html">Ir al experimento factorial</a></p>
-
-    <script type="module" src="/sim/humo.ts"></script>
+    <h1>Simulador de Age of Conquest IV</h1>
+    <p class="nota">
+      Simulación de eventos discretos del modelo formalizado en el Parcial II.
+    </p>
+    <ul>
+      <li><a href="/partida.html">Observar una partida</a> — estado turno a turno y cola de eventos.</li>
+      <li><a href="/experimento.html">Experimento factorial</a> — las 270 corridas del plan de experimentación, con ANOVA y exportación.</li>
+    </ul>
   </body>
 </html>
