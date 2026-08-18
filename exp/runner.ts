@@ -56,3 +56,29 @@ export function correrLote(
 
   return { celdas, corridas };
 }
+
+/**
+ * Igual que `correrLote`, pero cede el control al event loop entre celdas
+ * para que la interfaz pueda pintar el progreso (§7). Nueve pausas en total.
+ */
+export async function correrLoteProgresivo(
+  alProgresar?: (hechas: number, total: number) => void,
+): Promise<Resumen> {
+  const total = NIVELES_A.length * NIVELES_B.length * SEMILLAS.length;
+  const corridas: Corrida[] = [];
+  const celdas = [];
+
+  for (const nJugadores of NIVELES_A) {
+    for (const gamma of NIVELES_B) {
+      const deLaCelda = SEMILLAS.map((s) => unaCorrida(nJugadores, gamma, s));
+      corridas.push(...deLaCelda);
+      celdas.push(resumirCelda(deLaCelda));
+      alProgresar?.(corridas.length, total);
+      // setTimeout(0), no rAF: cede de verdad al event loop para que el
+      // navegador pueda pintar el progreso antes de seguir con la próxima celda.
+      await new Promise<void>((r) => setTimeout(r, 0));
+    }
+  }
+
+  return { celdas, corridas };
+}

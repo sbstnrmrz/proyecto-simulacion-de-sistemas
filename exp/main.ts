@@ -1,4 +1,4 @@
-import { correrLote, NIVELES_A, NIVELES_B } from "./runner";
+import { correrLoteProgresivo, NIVELES_A, NIVELES_B } from "./runner";
 import { anovaDosFactores, type Observacion, type TablaAnova, type FilaAnova } from "./anova";
 import { aCSV } from "./csv";
 import type { Corrida, Resumen } from "./tipos";
@@ -85,35 +85,34 @@ function descargarCSV(corridas: Corrida[]): void {
   URL.revokeObjectURL(url);
 }
 
-$("correr").addEventListener("click", () => {
+$("correr").addEventListener("click", async () => {
   ($("correr") as HTMLButtonElement).disabled = true;
   $("progreso").textContent = "Corriendo…";
 
-  // Un frame para que el navegador pinte el mensaje antes de bloquearse.
-  requestAnimationFrame(() => {
-    const t0 = performance.now();
-    const r = correrLote();
-    const ms = Math.round(performance.now() - t0);
-
-    const anovaT = anovaDosFactores(observaciones(r.corridas, (c) => c.tVic));
-    const anovaC = anovaDosFactores(observaciones(r.corridas, (c) => c.colapsados));
-
-    $("progreso").textContent = `270 corridas en ${ms} ms.`;
-    $("salida").innerHTML =
-      tablaCeldas(r) +
-      tablaAnova("ANOVA — turnos hasta la victoria", anovaT,
-        "Factor A: número de jugadores. Factor B: mantenimiento militar γ. " +
-        "La respuesta está censurada en las corridas que terminaron por horizonte; " +
-        "ver la columna correspondiente de la tabla anterior.") +
-      tablaAnova("ANOVA — jugadores colapsados por réplica", anovaC,
-        "La ec. 3.37 define la tasa de colapso como un cociente de celda, no como una " +
-        "medición por réplica, así que no entra en un ANOVA balanceado. Acá se analiza el " +
-        "número de jugadores colapsados en cada réplica, que mide el mismo fenómeno y sí " +
-        "está definido réplica a réplica. La tasa de la ec. 3.37 está en la tabla de resumen. " +
-        "Nótese que esta respuesta depende del número de jugadores por construcción: con 8 " +
-        "hay más candidatos a colapsar que con 3, y eso es parte del efecto del Factor A.") +
-      `<p><button id="csv">Descargar CSV (270 filas)</button></p>`;
-
-    $("csv").addEventListener("click", () => descargarCSV(r.corridas));
+  const t0 = performance.now();
+  const r = await correrLoteProgresivo((hechas, total) => {
+    $("progreso").textContent = `Corriendo… ${hechas} de ${total}`;
   });
+  const ms = Math.round(performance.now() - t0);
+
+  const anovaT = anovaDosFactores(observaciones(r.corridas, (c) => c.tVic));
+  const anovaC = anovaDosFactores(observaciones(r.corridas, (c) => c.colapsados));
+
+  $("progreso").textContent = `270 corridas en ${ms} ms.`;
+  $("salida").innerHTML =
+    tablaCeldas(r) +
+    tablaAnova("ANOVA — turnos hasta la victoria", anovaT,
+      "Factor A: número de jugadores. Factor B: mantenimiento militar γ. " +
+      "La respuesta está censurada en las corridas que terminaron por horizonte; " +
+      "ver la columna correspondiente de la tabla anterior.") +
+    tablaAnova("ANOVA — jugadores colapsados por réplica", anovaC,
+      "La ec. 3.37 define la tasa de colapso como un cociente de celda, no como una " +
+      "medición por réplica, así que no entra en un ANOVA balanceado. Acá se analiza el " +
+      "número de jugadores colapsados en cada réplica, que mide el mismo fenómeno y sí " +
+      "está definido réplica a réplica. La tasa de la ec. 3.37 está en la tabla de resumen. " +
+      "Nótese que esta respuesta depende del número de jugadores por construcción: con 8 " +
+      "hay más candidatos a colapsar que con 3, y eso es parte del efecto del Factor A.") +
+    `<p><button id="csv">Descargar CSV (270 filas)</button></p>`;
+
+  $("csv").addEventListener("click", () => descargarCSV(r.corridas));
 });

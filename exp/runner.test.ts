@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { unaCorrida, correrLote, NIVELES_A, NIVELES_B, SEMILLAS } from "./runner";
+import { unaCorrida, correrLote, correrLoteProgresivo, NIVELES_A, NIVELES_B, SEMILLAS } from "./runner";
 
 describe("diseño experimental (§7)", () => {
   it("es un factorial 3×3 con 30 réplicas", () => {
@@ -67,5 +67,20 @@ describe("el lote completo", () => {
     const a = correrLote().corridas.map((c) => c.tVic);
     const b = correrLote().corridas.map((c) => c.tVic);
     expect(a).toEqual(b);
+  }, 240_000);
+});
+
+describe("el lote progresivo (§7 — cede el event loop entre celdas)", () => {
+  it("produce exactamente el mismo resultado que el lote síncrono", async () => {
+    const sincrono = correrLote();
+    const progresivo = await correrLoteProgresivo();
+    expect(progresivo.corridas).toEqual(sincrono.corridas);
+    expect(progresivo.celdas).toEqual(sincrono.celdas);
+  }, 240_000);
+
+  it("invoca el callback de progreso nueve veces, una por celda", async () => {
+    const vistos: number[] = [];
+    await correrLoteProgresivo((hechas, total) => { vistos.push(hechas); expect(total).toBe(270); });
+    expect(vistos).toEqual([30, 60, 90, 120, 150, 180, 210, 240, 270]);
   }, 240_000);
 });
